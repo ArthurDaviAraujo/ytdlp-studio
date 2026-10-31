@@ -1,0 +1,78 @@
+{
+  "name": "yt-dlp-gui",
+  "productName": "yt-dlp GUI",
+  "version": "1.0.0",
+  "description": "Interface gráfica para o yt-dlp",
+  "main": "./out/main/index.js",
+  "author": "Arthur Davi",
+  "license": "MIT",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "start": "electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "dist": "electron-vite build && electron-builder --win"
+  },
+  "build": {
+    "appId": "dev.arthurdavi.ytdlpgui",
+    "productName": "yt-dlp GUI",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**"
+    ],
+    "extraResources": [
+      {
+        "from": "../programas/yt-dlp.exe",
+        "to": "bin/yt-dlp.exe"
+      },
+      {
+        "from": "../programas/ffmpeg.exe",
+        "to": "bin/ffmpeg.exe"
+      },
+      {
+        "from": "../programas/ffprobe.exe",
+        "to": "bin/ffprobe.exe"
+      },
+      {
+        "from": "../programas/deno.exe",
+        "to": "bin/deno.exe"
+      },
+      {
+        "from": "../programas/rife",
+        "to": "bin/rife"
+      },
+      {
+        "from": "../programas/rife-comunidade",
+        "to": "bin/rife-comunidade"
+      }
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "electron": "^45.2.0",
+    "electron-builder": "^26.18.0",
+    "electron-vite": "^6.0.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5"
+  },
+  "dependencies": {
+    "lucide-react": "^1.65.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  }
+}
