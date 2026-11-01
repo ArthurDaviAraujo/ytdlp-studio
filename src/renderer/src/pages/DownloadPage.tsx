@@ -8,6 +8,7 @@ import VideoView, { thumbOf, type VideoTab } from '../components/VideoView'
 import PlaylistView from '../components/PlaylistView'
 import OptionsPanel from '../components/OptionsPanel'
 import AllOptionsDialog from '../components/AllOptionsDialog'
+import demoGif from '../assets/demo.gif'
 import { DEFAULT_OPTIONS, PER_VIDEO_KEYS, buildArgs, describe, type DownloadOptions } from '../lib/args'
 
 const STORE_KEY = 'download-options'
@@ -253,14 +254,20 @@ export default function DownloadPage({ ctx }: { ctx: AppContext }) {
           )}
 
           {!loading && !current && (
-            <div className="grid place-items-center py-24 text-center">
-              <div className="mb-4 grid h-16 w-16 place-items-center rounded-2xl bg-panel-2 text-accent">
-                <Link2 className="h-8 w-8" />
-              </div>
+            <div className="flex flex-col items-center py-8 text-center">
               <h2 className="text-lg font-semibold">Cole um link para começar</h2>
               <p className="mt-1 max-w-md text-sm text-muted">
                 O app mostra tudo o que o yt-dlp encontrar: formatos, qualidades, áudio, legendas, miniaturas, capítulos e comentários.
               </p>
+              <img src={demoGif} alt="Demonstração: colar o link, analisar, escolher o formato e baixar" className="mt-6 w-full max-w-[760px] rounded-xl border border-line shadow-2xl" />
+              <ol className="mt-5 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-muted">
+                {['Cole o link', 'Clique em Analisar', 'Escolha formato e qualidade', 'Baixe e acompanhe em Downloads'].map((step, i) => (
+                  <li key={step} className="flex items-center gap-2">
+                    <span className="grid h-6 w-6 place-items-center rounded-full bg-accent/15 text-xs font-semibold text-accent">{i + 1}</span>
+                    {step}
+                  </li>
+                ))}
+              </ol>
             </div>
           )}
         </div>
