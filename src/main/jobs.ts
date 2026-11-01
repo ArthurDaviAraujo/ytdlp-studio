@@ -1,6 +1,6 @@
 import { app, type WebContents } from 'electron'
 import { spawn, type ChildProcess } from 'child_process'
-import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'fs'
+import { appendFileSync, copyFileSync, existsSync, readFileSync, unlinkSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { randomUUID } from 'crypto'
 import type { Job, JobRequest } from '../shared/types'
@@ -89,11 +89,20 @@ function touch(job: Job, persist = false): void {
   if (persist) scheduleSave()
 }
 
+// Falso enquanto o jobs.json existir mas não tiver sido lido (arquivo preso por antivírus, por exemplo)
+let historyLoaded = false
+let historyBackedUp = false
+
 function scheduleSave(): void {
   if (saveTimer) clearTimeout(saveTimer)
   saveTimer = setTimeout(() => {
     const list = [...jobs.values()].slice(-300).map((j) => ({ ...j, logTail: [] }))
     try {
+      // Não sobrescreve um histórico que não foi lido sem guardar uma cópia antes
+      if (!historyLoaded && !historyBackedUp && existsSync(historyFile())) {
+        copyFileSync(historyFile(), `${historyFile()}.bak`)
+        historyBackedUp = true
+      }
       writeFileSync(historyFile(), JSON.stringify(list))
     } catch {
       // sem histórico salvo desta vez
@@ -102,25 +111,45 @@ function scheduleSave(): void {
 }
 
 export function loadHistory(): void {
-  try {
-    if (!existsSync(historyFile())) return
-    const list = JSON.parse(readFileSync(historyFile(), 'utf8')) as Job[]
-    for (const j of list) {
-      j.kind ??= 'download'
-      j.input ??= null
-      j.exportSettings ??= null
-      if (j.status === 'queued' || j.status === 'running' || j.status === 'converting') {
-        j.status = 'canceled'
-        j.stage = 'Interrompido quando o app foi fechado'
-      }
-      jobs.set(j.id, j)
-    }
-  } catch {
-    // histórico ilegível: começa vazio
+  if (!existsSync(historyFile())) {
+    historyLoaded = true
+    return
   }
+  let list: Job[] | null = null
+  for (let attempt = 0; attempt < 3 && !list; attempt++) {
+    try {
+      list = JSON.parse(readFileSync(historyFile(), 'utf8')) as Job[]
+    } catch (e) {
+      try {
+        appendFileSync(join(app.getPath('userData'), 'jobs-erro.log'), `${new Date().toISOString()} ${String(e)}\n`)
+      } catch {
+        // sem registro do erro
+      }
+      if (attempt < 2) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 200)
+    }
+  }
+  if (!list) return
+  // Os itens do arquivo vêm antes dos criados nesta sessão
+  const current = [...jobs.values()]
+  jobs.clear()
+  for (const j of list) {
+    j.kind ??= 'download'
+    j.input ??= null
+    j.exportSettings ??= null
+    if (j.status === 'queued' || j.status === 'running' || j.status === 'converting') {
+      j.status = 'canceled'
+      j.stage = 'Interrompido quando o app foi fechado'
+    }
+    jobs.set(j.id, j)
+  }
+  for (const j of current) jobs.set(j.id, j)
+  historyLoaded = true
 }
 
-export const listJobs = (): Job[] => [...jobs.values()]
+export function listJobs(): Job[] {
+  if (!historyLoaded && !historyBackedUp) loadHistory()
+  return [...jobs.values()]
+}
 
 export function getJobLog(id: string): string[] {
   return runtime.get(id)?.log ?? ['(o log completo só fica disponível enquanto o app está aberto)']

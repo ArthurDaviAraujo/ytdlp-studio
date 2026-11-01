@@ -23,10 +23,20 @@ export interface AppContext {
   deletePreset: (id: string) => void
 }
 
-function useJobs() {
+function useJobs(page: Page) {
   const [jobs, setJobs] = useState<Job[]>([])
+  // Busca de novo ao abrir Downloads: se o histórico não pôde ser lido na abertura, o app tenta outra vez
   useEffect(() => {
-    void window.api.listJobs().then(setJobs)
+    if (page !== 'download' && page !== 'queue') return
+    void window.api.listJobs().then((list) =>
+      setJobs((prev) => {
+        const map = new Map(list.map((j) => [j.id, j]))
+        for (const j of prev) if (!map.has(j.id)) map.set(j.id, j)
+        return [...map.values()]
+      })
+    )
+  }, [page])
+  useEffect(() => {
     return window.api.onJobsUpdate((updated) =>
       setJobs((prev) => {
         const map = new Map(prev.map((j) => [j.id, j]))
@@ -48,7 +58,7 @@ export default function App() {
   const [exportSource, setExportSource] = useState<string | null>(null)
   const [update, setUpdate] = useState<UpdateCheck | null>(null)
   const [updating, setUpdating] = useState(false)
-  const { jobs, drop } = useJobs()
+  const { jobs, drop } = useJobs(page)
 
   // Ao abrir, pergunta ao GitHub se há yt-dlp mais novo (uma vez por abertura)
   const checkEnabled = settings?.checkUpdates
