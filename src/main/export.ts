@@ -54,18 +54,16 @@ function geometry(info: MediaInfo, s: ExportSettings): Geometry {
   const H = even(s.height || info.height)
   const srcAR = info.width / info.height
   const dstAR = W / H
-  if (Math.abs(srcAR - dstAR) < 0.01) return { W, H, filter: `scale=${W}:${H}:flags=lanczos,setsar=1` }
+  const zoom = s.framing === 'crop' ? Math.max(1, s.zoom || 1) : 1
+  if (Math.abs(srcAR - dstAR) < 0.01 && zoom === 1) return { W, H, filter: `scale=${W}:${H}:flags=lanczos,setsar=1` }
 
   if (s.framing === 'crop') {
-    let crop: string
-    if (srcAR > dstAR) {
-      const cw = Math.min(info.width, even(info.height * dstAR))
-      crop = `crop=${cw}:${info.height}:${Math.round(((info.width - cw) * s.position) / 100)}:0`
-    } else {
-      const ch = Math.min(info.height, even(info.width / dstAR))
-      crop = `crop=${info.width}:${ch}:0:${Math.round(((info.height - ch) * s.position) / 100)}`
-    }
-    return { W, H, filter: `${crop},scale=${W}:${H}:flags=lanczos,setsar=1` }
+    // O maior recorte com a proporção final; o zoom diminui o recorte e libera mover nos dois eixos
+    const cw = Math.min(info.width, even((srcAR > dstAR ? info.height * dstAR : info.width) / zoom))
+    const ch = Math.min(info.height, even((srcAR > dstAR ? info.height : info.width / dstAR) / zoom))
+    const x = Math.round(((info.width - cw) * (s.position ?? 50)) / 100)
+    const y = Math.round(((info.height - ch) * (s.positionY ?? 50)) / 100)
+    return { W, H, filter: `crop=${cw}:${ch}:${x}:${y},scale=${W}:${H}:flags=lanczos,setsar=1` }
   }
 
   const fit = `scale=${W}:${H}:force_original_aspect_ratio=decrease:force_divisible_by=2:flags=lanczos`

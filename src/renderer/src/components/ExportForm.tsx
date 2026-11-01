@@ -191,9 +191,19 @@ export default function ExportForm({
             ]}
           />
           {value.framing === 'crop' && (
-            <Field label={`Posição do corte: ${value.position}%`} hint="0 = esquerda (ou topo), 50 = centro, 100 = direita (ou base).">
-              <input type="range" min={0} max={100} step={1} value={value.position} onChange={(e) => set('position', Number(e.target.value))} className="w-full accent-[#ff4d4d]" />
-            </Field>
+            <>
+              <Field label={`Zoom do corte: ${(value.zoom ?? 1).toFixed(1)}x`} hint="Com zoom, o recorte pode ir para qualquer canto. Na prévia: arraste o quadro e use a rodinha do mouse.">
+                <input type="range" min={1} max={4} step={0.05} value={value.zoom ?? 1} onChange={(e) => set('zoom', Number(e.target.value))} className="w-full accent-[#ff4d4d]" />
+              </Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label={`Horizontal: ${value.position}%`}>
+                  <input type="range" min={0} max={100} step={1} value={value.position} onChange={(e) => set('position', Number(e.target.value))} className="w-full accent-[#ff4d4d]" />
+                </Field>
+                <Field label={`Vertical: ${value.positionY ?? 50}%`}>
+                  <input type="range" min={0} max={100} step={1} value={value.positionY ?? 50} onChange={(e) => set('positionY', Number(e.target.value))} className="w-full accent-[#ff4d4d]" />
+                </Field>
+              </div>
+            </>
           )}
           {value.framing === 'blur' && (
             <Field label={`Força do desfoque: ${value.blur}`}>

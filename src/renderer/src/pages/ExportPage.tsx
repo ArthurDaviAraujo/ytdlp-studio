@@ -28,7 +28,8 @@ export default function ExportPage({ ctx, jobs, source, setSource }: { ctx: AppC
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [image, setImage] = useState<string | null>(null)
-  const [at, setAt] = useState(0.1)
+  // Quadro parado só para quando o vídeo não toca na prévia
+  const at = 0.1
 
   useEffect(() => {
     try {
@@ -57,7 +58,7 @@ export default function ExportPage({ ctx, jobs, source, setSource }: { ctx: AppC
     const t = parseTime(settings.start) ?? info.duration * at
     const timer = setTimeout(() => void window.api.mediaFrame(info.path, t).then(setImage), 200)
     return () => clearTimeout(timer)
-  }, [info, at, settings.start])
+  }, [info, settings.start])
 
   const recent = useMemo(() => {
     const files: string[] = []
@@ -160,14 +161,15 @@ export default function ExportPage({ ctx, jobs, source, setSource }: { ctx: AppC
                     </span>
                     <span>{bytes(info.size)}</span>
                   </div>
-                  <FramingPreview image={image} srcW={info.width} srcH={info.height} s={settings} video={info.path} />
-                  {!settings.start && (
-                    <div className="flex items-center gap-3 text-xs text-muted">
-                      <RefreshCw className="h-3.5 w-3.5" /> Momento da prévia
-                      <input type="range" min={0} max={0.99} step={0.01} value={at} onChange={(e) => setAt(Number(e.target.value))} className="flex-1 accent-[#ff4d4d]" />
-                      <span className="w-12 text-right">{duration(info.duration * at)}</span>
-                    </div>
-                  )}
+                  <FramingPreview
+                    image={image}
+                    srcW={info.width}
+                    srcH={info.height}
+                    s={settings}
+                    onChange={(patch) => setSettings((cur) => ({ ...cur, ...patch }))}
+                    video={info.path}
+                    total={info.duration}
+                  />
                 </div>
               )}
             </Card>

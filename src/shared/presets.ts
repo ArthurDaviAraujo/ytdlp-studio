@@ -7,6 +7,8 @@ export const BASE_EXPORT: ExportSettings = {
   height: 0,
   framing: 'crop',
   position: 50,
+  positionY: 50,
+  zoom: 1,
   blur: 20,
   barColor: '#000000',
   fps: 0,

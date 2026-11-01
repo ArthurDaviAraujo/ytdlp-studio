@@ -1,32 +1,59 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
-import { Pause, Play, Volume2, VolumeX } from 'lucide-react'
+import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type WheelEvent } from 'react'
+import { Move, Pause, Play, Volume2, VolumeX } from 'lucide-react'
 import type { ExportSettings } from '../../../shared/types'
-import { duration, parseTime } from '../lib/format'
+import { duration as fmt, parseTime } from '../lib/format'
 
 /** Caminho do Windows → endereço file:// que o <video> do Electron consegue abrir */
 const fileUrl = (p: string) => encodeURI('file:///' + p.replace(/\\/g, '/')).replace(/#/g, '%23').replace(/\?/g, '%3F')
+const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v))
 
-/** Mostra onde fica o corte no vídeo original e o resultado, que pode ser tocado com o enquadramento aplicado. */
-export default function FramingPreview({ image, srcW, srcH, s, video }: { image: string | null; srcW: number; srcH: number; s: ExportSettings; video?: string | null }) {
+/**
+ * Original e resultado lado a lado. O recorte pode ser arrastado (e a rodinha do mouse dá zoom).
+ * Os vídeos tocam juntos e a barra de tempo segue o vídeo ou leva ele ao ponto escolhido.
+ */
+export default function FramingPreview({
+  image,
+  srcW,
+  srcH,
+  s,
+  onChange,
+  video,
+  total
+}: {
+  image: string | null
+  srcW: number
+  srcH: number
+  s: ExportSettings
+  onChange?: (patch: Partial<ExportSettings>) => void
+  video?: string | null
+  total?: number | null
+}) {
   const fg = useRef<HTMLVideoElement>(null)
   const bg = useRef<HTMLVideoElement>(null)
+  const orig = useRef<HTMLVideoElement>(null)
+  const origBox = useRef<HTMLDivElement>(null)
+  const drag = useRef<{ x: number; y: number; px: number; py: number } | null>(null)
   const [playing, setPlaying] = useState(false)
   const [muted, setMuted] = useState(false)
   const [now, setNow] = useState(0)
   const [failed, setFailed] = useState(false)
 
   const start = parseTime(s.start) ?? 0
-  const end = parseTime(s.end)
+  const end = parseTime(s.end) ?? total ?? null
+  const all = () => [fg.current, bg.current, orig.current].filter(Boolean) as HTMLVideoElement[]
 
   // Trocar de arquivo ou de trecho volta para o começo do trecho, parado
   useEffect(() => {
     setFailed(false)
     setPlaying(false)
-    for (const v of [fg.current, bg.current]) if (v) (v.pause(), (v.currentTime = start))
+    setNow(start)
+    for (const v of all()) (v.pause(), (v.currentTime = start))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [video, start])
 
   useEffect(() => {
-    for (const v of [fg.current, bg.current]) if (v) v.playbackRate = s.speed > 0 ? s.speed : 1
+    for (const v of all()) v.playbackRate = s.speed > 0 ? s.speed : 1
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [s.speed, playing])
 
   if (!srcW || !srcH) return null
@@ -34,26 +61,30 @@ export default function FramingPreview({ image, srcW, srcH, s, video }: { image:
   const outH = s.height || srcH
   const srcAR = srcW / srcH
   const dstAR = outW / outH
-  const same = Math.abs(srcAR - dstAR) < 0.01
+  const crop = s.framing === 'crop'
+  const zoom = crop ? Math.max(1, s.zoom || 1) : 1
+  const same = Math.abs(srcAR - dstAR) < 0.01 && zoom === 1
   const wider = srcAR > dstAR
-  // Fração do original que o corte mantém, no eixo que é cortado
-  const frac = same ? 1 : wider ? dstAR / srcAR : srcAR / dstAR
-  const pos = s.position / 100
-  const bgImg = image ? `url("${image}")` : undefined
+  // Tamanho do recorte em frações do original
+  const fw = crop || same ? Math.min(1, (wider ? dstAR / srcAR : 1) / zoom) : 1
+  const fh = crop || same ? Math.min(1, (wider ? 1 : srcAR / dstAR) / zoom) : 1
+  const px = (s.position ?? 50) / 100
+  const py = (s.positionY ?? 50) / 100
   const boxH = 300
   const boxW = Math.round(boxH * dstAR)
   const canPlay = !!video && !failed
+  const showWindow = !same && crop
 
-  const fit: CSSProperties =
-    same || s.framing === 'crop'
-      ? { objectFit: 'cover', objectPosition: same ? 'center' : wider ? `${pos * 100}% 50%` : `50% ${pos * 100}%` }
-      : { objectFit: 'contain' }
+  const seek = (t: number) => {
+    for (const v of all()) v.currentTime = t
+    setNow(t)
+  }
 
   const toggle = () => {
     const v = fg.current
     if (!v) return
     if (v.paused) {
-      if (v.currentTime < start || (end != null && v.currentTime >= end)) v.currentTime = start
+      if (v.currentTime < start || (end != null && v.currentTime >= end)) seek(start)
       void v.play()
     } else v.pause()
   }
@@ -62,107 +93,140 @@ export default function FramingPreview({ image, srcW, srcH, s, video }: { image:
     const v = fg.current
     if (!v) return
     // Toca só o trecho escolhido, em repetição
-    if (end != null && v.currentTime >= end) v.currentTime = start
-    if (bg.current && Math.abs(bg.current.currentTime - v.currentTime) > 0.3) bg.current.currentTime = v.currentTime
+    if (end != null && v.currentTime >= end) seek(start)
+    for (const o of [bg.current, orig.current]) if (o && Math.abs(o.currentTime - v.currentTime) > 0.25) o.currentTime = v.currentTime
     setNow(v.currentTime)
   }
 
+  // Arrastar o quadro do recorte: o deslocamento do mouse vira posição de 0 a 100 em cada eixo
+  const onDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!onChange) return
+    e.currentTarget.setPointerCapture(e.pointerId)
+    drag.current = { x: e.clientX, y: e.clientY, px, py }
+  }
+  const onMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const d = drag.current
+    const box = origBox.current?.getBoundingClientRect()
+    if (!d || !box || !onChange) return
+    const patch: Partial<ExportSettings> = {}
+    if (fw < 0.999) patch.position = Math.round(clamp(d.px + (e.clientX - d.x) / (box.width * (1 - fw)), 0, 1) * 100)
+    if (fh < 0.999) patch.positionY = Math.round(clamp(d.py + (e.clientY - d.y) / (box.height * (1 - fh)), 0, 1) * 100)
+    onChange(patch)
+  }
+  const onWheel = (e: WheelEvent<HTMLDivElement>) => {
+    if (!onChange || !crop) return
+    onChange({ zoom: Math.round(clamp(zoom * (e.deltaY < 0 ? 1.08 : 1 / 1.08), 1, 4) * 100) / 100 })
+  }
+
+  // Resultado no modo corte: o vídeo inteiro ampliado e deslocado dentro da caixa (vale para qualquer zoom)
+  const cropStyle: CSSProperties = {
+    position: 'absolute',
+    width: boxW / fw,
+    height: boxH / fh,
+    left: -(boxW / fw - boxW) * px,
+    top: -(boxH / fh - boxH) * py,
+    maxWidth: 'none',
+    objectFit: 'fill'
+  }
+
   return (
-    <div className="flex items-start gap-4">
-      <div className="min-w-0 flex-1">
-        <div className="mb-1.5 text-xs text-muted">Original ({srcW}×{srcH})</div>
-        <div className="relative overflow-hidden rounded-lg bg-panel-3" style={{ aspectRatio: `${srcW} / ${srcH}`, width: `min(100%, ${Math.round(boxH * 1.2 * srcAR)}px)` }}>
-          {image && <img src={image} alt="" className="h-full w-full object-cover" />}
-          {!same && s.framing === 'crop' && (
-            <>
-              <div className="absolute inset-0 bg-black/55" />
+    <div className="space-y-3">
+      <div className="flex items-start gap-4">
+        <div className="min-w-0 flex-1">
+          <div className="mb-1.5 flex items-center justify-between text-xs text-muted">
+            <span>Original ({srcW}×{srcH})</span>
+            {showWindow && onChange && (
+              <span className="flex items-center gap-1">
+                <Move className="h-3.5 w-3.5" /> arraste o quadro · rodinha = zoom {zoom.toFixed(1)}x
+              </span>
+            )}
+          </div>
+          <div
+            ref={origBox}
+            className="relative overflow-hidden rounded-lg bg-panel-3"
+            style={{ aspectRatio: `${srcW} / ${srcH}`, width: `min(100%, ${Math.round(boxH * 1.2 * srcAR)}px)` }}
+            onWheel={onWheel}
+          >
+            {canPlay ? (
+              <video ref={orig} src={fileUrl(video!)} muted preload="auto" className="h-full w-full object-cover" onLoadedMetadata={(e) => (e.currentTarget.currentTime = start)} />
+            ) : (
+              image && <img src={image} alt="" className="h-full w-full object-cover" />
+            )}
+            {showWindow && (
               <div
-                className="absolute overflow-hidden border-2 border-white shadow-[0_0_0_1px_rgba(0,0,0,0.6)]"
-                style={
-                  wider
-                    ? { top: 0, bottom: 0, width: `${frac * 100}%`, left: `${(1 - frac) * pos * 100}%` }
-                    : { left: 0, right: 0, height: `${frac * 100}%`, top: `${(1 - frac) * pos * 100}%` }
-                }
-              >
-                {image && (
-                  <div
-                    className="absolute inset-0"
-                    style={{
-                      backgroundImage: bgImg,
-                      backgroundSize: wider ? `${100 / frac}% 100%` : `100% ${100 / frac}%`,
-                      backgroundPosition: wider ? `${pos * 100}% 0` : `0 ${pos * 100}%`
-                    }}
-                  />
+                className="absolute cursor-grab border-2 border-white shadow-[0_0_0_9999px_rgba(0,0,0,0.55)] active:cursor-grabbing"
+                style={{ width: `${fw * 100}%`, height: `${fh * 100}%`, left: `${(1 - fw) * px * 100}%`, top: `${(1 - fh) * py * 100}%`, touchAction: 'none' }}
+                onPointerDown={onDown}
+                onPointerMove={onMove}
+                onPointerUp={() => (drag.current = null)}
+              />
+            )}
+          </div>
+        </div>
+
+        <div className="shrink-0">
+          <div className="mb-1.5 text-xs text-muted">
+            Resultado ({outW}×{outH})
+          </div>
+          <div className="relative overflow-hidden rounded-lg border border-line" style={{ width: boxW, height: boxH, background: s.framing === 'bars' && !same ? s.barColor : '#000' }}>
+            {canPlay ? (
+              <>
+                {!same && s.framing === 'blur' && (
+                  <video ref={bg} src={fileUrl(video!)} muted preload="auto" className="absolute -inset-4 h-[calc(100%+2rem)] w-[calc(100%+2rem)] object-cover" style={{ filter: `blur(${Math.max(2, s.blur / 3)}px)` }} />
                 )}
-              </div>
-            </>
-          )}
+                <video
+                  ref={fg}
+                  src={fileUrl(video!)}
+                  muted={muted}
+                  preload="auto"
+                  className={crop || same ? '' : 'absolute inset-0 h-full w-full object-contain'}
+                  style={crop || same ? cropStyle : undefined}
+                  onClick={toggle}
+                  onPlay={() => (setPlaying(true), void bg.current?.play(), void orig.current?.play())}
+                  onPause={() => (setPlaying(false), bg.current?.pause(), orig.current?.pause())}
+                  onTimeUpdate={onTime}
+                  onLoadedMetadata={(e) => (e.currentTarget.currentTime = start)}
+                  onError={() => setFailed(true)}
+                />
+              </>
+            ) : (
+              image && (
+                <>
+                  {!same && s.framing === 'blur' && (
+                    <div className="absolute -inset-4" style={{ backgroundImage: `url("${image}")`, backgroundSize: 'cover', backgroundPosition: 'center', filter: `blur(${Math.max(2, s.blur / 3)}px)` }} />
+                  )}
+                  <img src={image} alt="" className={crop || same ? '' : 'absolute inset-0 h-full w-full object-contain'} style={crop || same ? cropStyle : undefined} />
+                </>
+              )
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="shrink-0">
-        <div className="mb-1.5 text-xs text-muted">
-          Resultado ({outW}×{outH})
+      {canPlay && (
+        <div className="flex items-center gap-3">
+          <button onClick={toggle} className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-accent text-white hover:bg-accent-hover" title={playing ? 'Pausar' : 'Tocar a prévia'}>
+            {playing ? <Pause className="h-4 w-4" /> : <Play className="ml-0.5 h-4 w-4" />}
+          </button>
+          <button onClick={() => setMuted(!muted)} className="text-muted hover:text-text" title={muted ? 'Ligar o som' : 'Tirar o som'}>
+            {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+          </button>
+          <span className="w-12 text-right text-xs text-muted">{fmt(now)}</span>
+          <input
+            type="range"
+            aria-label="Momento da prévia"
+            min={start}
+            max={end ?? Math.max(start + 1, now)}
+            step={0.05}
+            value={now}
+            onChange={(e) => seek(Number(e.target.value))}
+            className="flex-1 accent-[#ff4d4d]"
+          />
+          <span className="w-12 text-xs text-muted">{end != null ? fmt(end) : ''}</span>
+          {s.speed !== 1 && <span className="text-xs text-muted">{s.speed}x</span>}
         </div>
-        <div
-          className="relative overflow-hidden rounded-lg border border-line"
-          style={{ width: boxW, height: boxH, background: s.framing === 'bars' && !same ? s.barColor : '#000' }}
-        >
-          {canPlay ? (
-            <>
-              {!same && s.framing === 'blur' && (
-                <video ref={bg} src={fileUrl(video!)} muted preload="auto" className="absolute -inset-4 h-[calc(100%+2rem)] w-[calc(100%+2rem)] object-cover" style={{ filter: `blur(${Math.max(2, s.blur / 3)}px)` }} />
-              )}
-              <video
-                ref={fg}
-                src={fileUrl(video!)}
-                muted={muted}
-                preload="auto"
-                className="absolute inset-0 h-full w-full"
-                style={fit}
-                onClick={toggle}
-                onPlay={() => (setPlaying(true), void bg.current?.play())}
-                onPause={() => (setPlaying(false), bg.current?.pause())}
-                onTimeUpdate={onTime}
-                onLoadedMetadata={(e) => (e.currentTarget.currentTime = start)}
-                onError={() => setFailed(true)}
-              />
-            </>
-          ) : (
-            <>
-              {image && (same || s.framing === 'crop') && (
-                <div
-                  className="absolute inset-0"
-                  style={{
-                    backgroundImage: bgImg,
-                    backgroundSize: same ? 'cover' : wider ? `auto 100%` : `100% auto`,
-                    backgroundPosition: same ? 'center' : wider ? `${pos * 100}% 0` : `0 ${pos * 100}%`
-                  }}
-                />
-              )}
-              {image && !same && s.framing === 'blur' && (
-                <div className="absolute -inset-4" style={{ backgroundImage: bgImg, backgroundSize: 'cover', backgroundPosition: 'center', filter: `blur(${Math.max(2, s.blur / 3)}px)` }} />
-              )}
-              {image && !same && s.framing !== 'crop' && <img src={image} alt="" className="absolute inset-0 h-full w-full object-contain" />}
-            </>
-          )}
-        </div>
-        {canPlay && (
-          <div className="mt-2 flex items-center gap-2" style={{ width: boxW }}>
-            <button onClick={toggle} className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-accent text-white hover:bg-accent-hover" title={playing ? 'Pausar' : 'Tocar a prévia'}>
-              {playing ? <Pause className="h-4 w-4" /> : <Play className="ml-0.5 h-4 w-4" />}
-            </button>
-            <button onClick={() => setMuted(!muted)} className="text-muted hover:text-text" title={muted ? 'Ligar o som' : 'Tirar o som'}>
-              {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-            </button>
-            <span className="truncate text-xs text-muted">
-              {duration(now)}
-              {s.speed !== 1 && ` · ${s.speed}x`}
-            </span>
-          </div>
-        )}
-        {video && failed && <p className="mt-2 text-xs text-warn" style={{ width: boxW }}>Este formato não toca na prévia; o resultado final não é afetado.</p>}
-      </div>
+      )}
+      {video && failed && <p className="text-xs text-warn">Este formato não toca na prévia; o resultado final não é afetado.</p>}
     </div>
   )
 }

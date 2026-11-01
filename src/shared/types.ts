@@ -25,8 +25,12 @@ export interface ExportSettings {
   width: number
   height: number
   framing: Framing
-  /** 0 a 100: onde fica o corte (esquerda/topo → direita/base) */
+  /** 0 a 100: posição horizontal do corte (esquerda → direita) */
   position: number
+  /** 0 a 100: posição vertical do corte (topo → base) */
+  positionY: number
+  /** 1 = o maior recorte que cabe; acima de 1 aproxima e libera mover em todas as direções */
+  zoom: number
   blur: number
   barColor: string
   /** 0 = manter o FPS original */
