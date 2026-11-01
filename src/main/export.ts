@@ -322,6 +322,7 @@ async function exportWithAi(input: string, info: MediaInfo, s: ExportSettings, p
         keep = last ? nOut : v4 ? Math.round(nMain * ratio) : nMain * 2
         // Só os modelos v4 aceitam -n; os outros sempre dobram (o padrão do RIFE)
         const args = ['-i', inDir, '-o', outDir, '-m', modelDir, ...(v4 ? ['-n', String(nOut)] : []), '-f', '%08d.png', '-j', '2:2:2', '-v']
+        if (s.aiGpu >= 0) args.push('-g', String(s.aiGpu))
         if (s.aiUhd) args.push('-u')
         if (s.aiTtaSpatial) args.push('-x')
         if (s.aiTtaTemporal) args.push('-z')

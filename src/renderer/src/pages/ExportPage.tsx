@@ -160,7 +160,7 @@ export default function ExportPage({ ctx, jobs, source, setSource }: { ctx: AppC
                     </span>
                     <span>{bytes(info.size)}</span>
                   </div>
-                  <FramingPreview image={image} srcW={info.width} srcH={info.height} s={settings} />
+                  <FramingPreview image={image} srcW={info.width} srcH={info.height} s={settings} video={info.path} />
                   {!settings.start && (
                     <div className="flex items-center gap-3 text-xs text-muted">
                       <RefreshCw className="h-3.5 w-3.5" /> Momento da prévia

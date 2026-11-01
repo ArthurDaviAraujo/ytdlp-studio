@@ -36,6 +36,8 @@ export interface ExportSettings {
   aiUhd: boolean
   aiTtaSpatial: boolean
   aiTtaTemporal: boolean
+  /** Placa de vídeo do RIFE (índice da Vulkan); -1 = o RIFE escolhe */
+  aiGpu: number
   speed: number
   start: string
   end: string
@@ -68,6 +70,8 @@ export interface MediaInfo {
 export interface Capabilities {
   encoders: string[]
   frcAmf: boolean
+  /** Placas de vídeo que o RIFE enxerga pela Vulkan (AMD, NVIDIA ou Intel) */
+  gpus: { id: number; name: string }[]
 }
 
 export interface ToolInfo {

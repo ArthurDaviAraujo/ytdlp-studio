@@ -116,7 +116,7 @@ export default function ExportForm({
     duplicate: 'Repete quadros. Instantâneo, mas o movimento não fica mais suave.',
     gpu: 'Interpolação da AMD (frc_amf) na sua placa. Rápida; dobra o FPS e completa o resto repetindo quadros.',
     cpu: 'minterpolate do ffmpeg. Aceita qualquer FPS, mas é lento e pode distorcer movimentos rápidos.',
-    ai: 'RIFE. A melhor qualidade em movimento difícil; mais lento que a placa AMD.'
+    ai: 'RIFE. Roda na placa de vídeo (NVIDIA, AMD ou Intel). A melhor qualidade em movimento difícil; mais lento que a placa AMD.'
   }
 
   return (
@@ -231,6 +231,9 @@ export default function ExportForm({
           <Segmented<FrameMethod> value={value.method} onChange={(m) => set('method', m)} options={methods} />
         </Field>
         <p className="text-xs text-muted">{methodHint[value.method]}</p>
+        {value.method === 'gpu' && !caps?.frcAmf && (
+          <p className="text-xs text-warn">Esta opção só existe em placas AMD. Com placa NVIDIA, use “IA (RIFE)”, que roda nela.</p>
+        )}
         <p className={cx('text-xs', generates ? 'text-info' : 'text-faint')}>
           {effFps == null
             ? 'Só é usado quando o FPS final passa do FPS do vídeo ou em câmera lenta.'
@@ -240,6 +243,16 @@ export default function ExportForm({
         </p>
         {value.method === 'ai' && rifeModels.length > 0 && (
           <div className="space-y-2 rounded-lg bg-panel-2 p-3">
+            <Field label="Placa de vídeo" hint="Num notebook com duas placas, escolha a NVIDIA ou AMD dedicada para ir mais rápido.">
+              <Select value={value.aiGpu ?? -1} onChange={(e) => set('aiGpu', Number(e.target.value))}>
+                <option value={-1}>Automática</option>
+                {caps?.gpus.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
             <Field label="Modelo de IA">
               <Select value={rifeModels.includes(value.aiModel) ? value.aiModel : rifeModels[0]} onChange={(e) => set('aiModel', e.target.value)}>
                 {GENERATIONS.map((g) => {

@@ -62,6 +62,36 @@ export function encoderArgs(enc: string, q = 20, maxKbps = 0): string[] {
   }
 }
 
+let gpuCache: Promise<{ id: number; name: string }[]> | null = null
+
+/** Placas que o RIFE enxerga. O "-l" só existe no RIFE da comunidade; as linhas "[0 Nome] queueC=..." saem ao iniciar a Vulkan. */
+export function listRifeGpus(): Promise<{ id: number; name: string }[]> {
+  if (gpuCache) return gpuCache
+  const exes = [...new Set(Object.values(getToolStatus().rife.info).map((m) => m.exe))]
+  gpuCache = (async () => {
+    for (const exe of exes) {
+      const out = await new Promise<string>((resolve) => {
+        const child = spawn(exe, ['-l'], { windowsHide: true })
+        let text = ''
+        const add = (d: Buffer) => (text += d.toString('utf8'))
+        child.stdout.on('data', add)
+        child.stderr.on('data', add)
+        const timer = setTimeout(() => child.kill(), 15000)
+        child.on('error', () => resolve(''))
+        child.on('close', () => {
+          clearTimeout(timer)
+          resolve(text)
+        })
+      })
+      const found = new Map<number, string>()
+      for (const m of out.matchAll(/^\[(\d+) (.+?)\]\s+queueC/gm)) found.set(Number(m[1]), m[2].trim())
+      if (found.size) return [...found].map(([id, name]) => ({ id, name }))
+    }
+    return []
+  })()
+  return gpuCache
+}
+
 let frcCache: { ffmpeg: string; ok: Promise<boolean> } | null = null
 
 /** A interpolação da AMD (frc_amf) aparece no ffmpeg mesmo sem placa AMD; testa de verdade. */

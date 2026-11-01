@@ -4,7 +4,7 @@ import type { JobRequest, Settings } from '../shared/types'
 import { getSettings, setSettings } from './settings'
 import { ensureBundledBinaries, getToolStatus } from './tools'
 import { cancelInfo, checkYtdlpUpdate, getComments, getHelp, getInfo, updateYtdlp } from './ytdlp'
-import { frcAmfWorks, listH264Encoders } from './convert'
+import { frcAmfWorks, listH264Encoders, listRifeGpus } from './convert'
 import { frame, probe } from './media'
 import * as jobs from './jobs'
 
@@ -68,8 +68,8 @@ function registerIpc(): void {
   ipcMain.handle('ytdlp:check', () => checkYtdlpUpdate())
   ipcMain.handle('ffmpeg:encoders', () => listH264Encoders())
   ipcMain.handle('ffmpeg:capabilities', async () => {
-    const [encoders, frcAmf] = await Promise.all([listH264Encoders(), frcAmfWorks()])
-    return { encoders, frcAmf }
+    const [encoders, frcAmf, gpus] = await Promise.all([listH264Encoders(), frcAmfWorks(), listRifeGpus()])
+    return { encoders, frcAmf, gpus }
   })
   ipcMain.handle('media:probe', async (_e, path: string) => {
     try {

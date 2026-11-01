@@ -15,6 +15,7 @@ export const BASE_EXPORT: ExportSettings = {
   aiUhd: false,
   aiTtaSpatial: false,
   aiTtaTemporal: false,
+  aiGpu: -1,
   speed: 1,
   start: '',
   end: '',
