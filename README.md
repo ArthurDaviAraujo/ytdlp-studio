@@ -2,6 +2,10 @@
 
 Programa de desktop (Windows) que dá uma interface ao `yt-dlp`. Não altera nem copia o código do yt-dlp: roda o `yt-dlp.exe` por baixo, então atualizar o yt-dlp continua sendo só `yt-dlp -U` (ou o botão em Configurações).
 
+![Demonstração: colar o link, analisar, escolher o formato e baixar](src/renderer/src/assets/demo.gif)
+
+**Baixar:** o instalador para Windows está em [Releases](https://github.com/ArthurDaviAraujo/ytdlp-studio/releases/latest).
+
 Stack: Electron 45 + electron-vite + React 19 + TypeScript + Tailwind CSS 4.
 
 ## Rodar
