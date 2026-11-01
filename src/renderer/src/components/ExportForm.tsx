@@ -203,6 +203,14 @@ export default function ExportForm({
                   <input type="range" min={0} max={100} step={1} value={value.positionY ?? 50} onChange={(e) => set('positionY', Number(e.target.value))} className="w-full accent-[#ff4d4d]" />
                 </Field>
               </div>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={() => onChange({ ...value, position: 50, positionY: 50 })}>
+                  Centralizar
+                </Button>
+                <Button size="sm" variant="ghost" icon={<RotateCcw className="h-3.5 w-3.5" />} onClick={() => onChange({ ...value, position: 50, positionY: 50, zoom: 1 })}>
+                  Resetar corte
+                </Button>
+              </div>
             </>
           )}
           {value.framing === 'blur' && (

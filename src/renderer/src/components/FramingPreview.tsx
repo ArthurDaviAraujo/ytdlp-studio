@@ -136,8 +136,14 @@ export default function FramingPreview({
           <div className="mb-1.5 flex items-center justify-between text-xs text-muted">
             <span>Original ({srcW}×{srcH})</span>
             {showWindow && onChange && (
-              <span className="flex items-center gap-1">
-                <Move className="h-3.5 w-3.5" /> arraste o quadro · rodinha = zoom {zoom.toFixed(1)}x
+              <span className="flex items-center gap-2">
+                <Move className="h-3.5 w-3.5" /> arraste · rodinha = zoom {zoom.toFixed(1)}x
+                <button className="rounded-full bg-panel-3 px-2 py-0.5 text-text hover:bg-line" onClick={() => onChange({ position: 50, positionY: 50 })}>
+                  Centralizar
+                </button>
+                <button className="rounded-full bg-panel-3 px-2 py-0.5 text-text hover:bg-line" onClick={() => onChange({ position: 50, positionY: 50, zoom: 1 })}>
+                  Resetar
+                </button>
               </span>
             )}
           </div>
