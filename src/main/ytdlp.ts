@@ -1,6 +1,7 @@
 import { spawn, type ChildProcess } from 'child_process'
 import type { CommentsResult, HelpData, HelpOption, HelpSection, InfoRequest, InfoResult, UpdateCheck, UpdateResult } from '../shared/types'
 import { baseArgs, getToolStatus } from './tools'
+import { t } from '../shared/i18n'
 
 interface RunResult {
   code: number | null
@@ -16,7 +17,7 @@ export function killTree(child: ChildProcess): void {
 
 function run(args: string[], env: NodeJS.ProcessEnv = {}, onSpawn?: (c: ChildProcess) => void): Promise<RunResult> {
   const bin = getToolStatus().ytdlp.path
-  if (!bin) return Promise.resolve({ code: -1, stdout: '', stderr: 'ERROR: yt-dlp.exe não encontrado. Configure o caminho em Configurações.' })
+  if (!bin) return Promise.resolve({ code: -1, stdout: '', stderr: 'ERROR: ' + t('yt-dlp.exe não encontrado. Configure o caminho em Configurações.') })
   return new Promise((resolve) => {
     const child = spawn(bin, args, { windowsHide: true, env: { ...process.env, ...env } })
     onSpawn?.(child)
@@ -40,7 +41,7 @@ const linesOf = (text: string, prefix: string) =>
 function errorText(r: RunResult): string {
   const errors = linesOf(r.stderr, 'ERROR:')
   if (errors.length) return errors.join('\n')
-  return r.stderr.trim() || `O yt-dlp terminou com código ${r.code}`
+  return r.stderr.trim() || t('O yt-dlp terminou com código {code}', { code: String(r.code) })
 }
 
 let infoChild: ChildProcess | null = null
@@ -65,7 +66,7 @@ export async function getInfo(req: InfoRequest): Promise<InfoResult> {
   try {
     return { ok: true, info: JSON.parse(r.stdout), error: null, warnings, canceled: false }
   } catch (e) {
-    return { ok: false, info: null, error: `Resposta inválida do yt-dlp: ${(e as Error).message}`, warnings, canceled: false }
+    return { ok: false, info: null, error: t('Resposta inválida do yt-dlp: {error}', { error: (e as Error).message }), warnings, canceled: false }
   }
 }
 
@@ -164,12 +165,12 @@ export function parseHelp(text: string, version: string): HelpData {
 let helpCache: { key: string; data: HelpData } | null = null
 
 export async function getHelp(): Promise<HelpData> {
-  const t = getToolStatus()
-  const key = `${t.ytdlp.path}|${t.ytdlp.version}`
+  const tools = getToolStatus()
+  const key = `${tools.ytdlp.path}|${tools.ytdlp.version}`
   if (helpCache?.key === key) return helpCache.data
   // Terminal "largo" para cada opção vir numa linha só
   const r = await run(['--help'], { COLUMNS: '1000' })
-  const data = parseHelp(r.stdout, t.ytdlp.version ?? '')
+  const data = parseHelp(r.stdout, tools.ytdlp.version ?? '')
   helpCache = { key, data }
   return data
 }
@@ -193,7 +194,7 @@ export async function checkYtdlpUpdate(): Promise<UpdateCheck> {
       headers: { 'User-Agent': 'yt-dlp-gui', Accept: 'application/vnd.github+json' },
       signal: AbortSignal.timeout(10000)
     })
-    if (!r.ok) return { current, latest: null, newer: false, error: `GitHub respondeu ${r.status}` }
+    if (!r.ok) return { current, latest: null, newer: false, error: t('GitHub respondeu {status}', { status: r.status }) }
     const latest = String(((await r.json()) as { tag_name?: string }).tag_name ?? '') || null
     return { current, latest, newer: !!(latest && current && newerThan(latest, current)), error: null }
   } catch (e) {

@@ -7,6 +7,7 @@ import QueuePage from './pages/QueuePage'
 import SettingsPage from './pages/SettingsPage'
 import { cx } from './components/ui'
 import appIcon from './assets/icon.svg'
+import { setLang, t } from '../../shared/i18n'
 
 type Page = 'download' | 'export' | 'queue' | 'settings'
 
@@ -80,6 +81,9 @@ export default function App() {
   }, [toast])
 
   if (!settings || !tools) return <div className="h-full bg-bg" />
+  // Os textos de todas as telas saem no idioma escolhido a partir daqui
+  setLang(settings.language)
+  document.documentElement.lang = settings.language === 'pt' ? 'pt-BR' : 'en'
 
   const saveSettings = async (patch: Partial<Settings>) => {
     setSettings(await window.api.setSettings(patch))
@@ -105,7 +109,7 @@ export default function App() {
       // Mesmo nome substitui a predefinição antiga
       const others = settings.exportPresets.filter((p) => p.settings.name !== s.name)
       void saveSettings({ exportPresets: [...others, { id: crypto.randomUUID(), settings: s }] })
-      setToast({ msg: `Predefinição “${s.name}” salva` })
+      setToast({ msg: t('Predefinição “{name}” salva', { name: s.name }) })
     },
     deletePreset: (id) => void saveSettings({ exportPresets: settings.exportPresets.filter((p) => p.id !== id) })
   }
@@ -114,10 +118,10 @@ export default function App() {
   const missing = !tools.ytdlp.path || !tools.ffmpeg.path
 
   const nav: { id: Page; label: string; icon: ReactNode; badge?: number }[] = [
-    { id: 'download', label: 'Baixar', icon: <Download className="h-[18px] w-[18px]" /> },
-    { id: 'export', label: 'Preparar vídeo', icon: <Wand2 className="h-[18px] w-[18px]" /> },
-    { id: 'queue', label: 'Downloads', icon: <ListVideo className="h-[18px] w-[18px]" />, badge: active || undefined },
-    { id: 'settings', label: 'Configurações', icon: <SettingsIcon className="h-[18px] w-[18px]" /> }
+    { id: 'download', label: t('Baixar'), icon: <Download className="h-[18px] w-[18px]" /> },
+    { id: 'export', label: t('Preparar vídeo'), icon: <Wand2 className="h-[18px] w-[18px]" /> },
+    { id: 'queue', label: t('Downloads'), icon: <ListVideo className="h-[18px] w-[18px]" />, badge: active || undefined },
+    { id: 'settings', label: t('Configurações'), icon: <SettingsIcon className="h-[18px] w-[18px]" /> }
   ]
 
   return (
@@ -152,8 +156,8 @@ export default function App() {
               <div className="flex items-start gap-2">
                 <CircleArrowUp className="mt-0.5 h-4 w-4 shrink-0" />
                 <div>
-                  yt-dlp {update.latest} disponível
-                  <div className="text-muted">você tem {update.current}</div>
+                  yt-dlp {update.latest}{t(' disponível')}
+                  <div className="text-muted">{t('você tem ')}{update.current}</div>
                 </div>
               </div>
               <div className="mt-2 flex gap-2">
@@ -166,13 +170,13 @@ export default function App() {
                     setUpdating(false)
                     await ctx.refreshTools()
                     setUpdate(null)
-                    setToast({ msg: r.ok ? `yt-dlp atualizado para ${r.version}` : 'Não consegui atualizar; veja em Configurações' })
+                    setToast({ msg: r.ok ? t('yt-dlp atualizado para {version}', { version: r.version ?? '' }) : t('Não consegui atualizar; veja em Configurações') })
                   }}
                 >
-                  {updating ? 'Atualizando…' : 'Atualizar'}
+                  {updating ? t('Atualizando…') : t('Atualizar')}
                 </button>
                 <button className="px-2 py-1 text-muted hover:text-text" onClick={() => setUpdate(null)}>
-                  Depois
+                  {t('Depois')}
                 </button>
               </div>
             </div>
@@ -183,7 +187,7 @@ export default function App() {
               className="flex w-full items-start gap-2 rounded-lg border border-warn/30 bg-warn/10 p-3 text-left text-xs text-warn"
             >
               <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
-              {!tools.ytdlp.path ? 'yt-dlp.exe não encontrado' : 'ffmpeg.exe não encontrado'}. Toque para configurar.
+              {t(!tools.ytdlp.path ? 'yt-dlp.exe não encontrado' : 'ffmpeg.exe não encontrado')}{t('. Toque para configurar.')}
             </button>
           )}
         </div>

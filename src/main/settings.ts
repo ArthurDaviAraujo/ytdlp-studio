@@ -16,7 +16,8 @@ function defaults(): Settings {
     outputTemplate: '%(title)s [%(id)s].%(ext)s',
     concurrency: 2,
     exportPresets: [],
-    checkUpdates: true
+    checkUpdates: true,
+    language: 'en'
   }
 }
 

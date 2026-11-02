@@ -4,6 +4,7 @@ import { Plus, Scissors, X } from 'lucide-react'
 import { Button, Card, Checkbox, TextInput, Toggle, cx } from './ui'
 import { duration, parseTime } from '../lib/format'
 import type { DownloadOptions } from '../lib/args'
+import { t } from '../../../shared/i18n'
 
 const chapterSection = (c: any) => `*${c.start_time}-${c.end_time}`
 
@@ -38,24 +39,24 @@ export default function ChaptersTab({
 
   const describe = (s: string) => {
     const c = chapters.find((x) => chapterSection(x) === s)
-    if (c) return `Capítulo: ${c.title}`
+    if (c) return t('Capítulo: {title}', { title: c.title })
     const m = s.match(/^\*([\d.]+)-([\d.]+|inf)$/)
-    if (m) return `Trecho ${duration(Number(m[1]))} até ${m[2] === 'inf' ? 'o fim' : duration(Number(m[2]))}`
-    return `Capítulos que combinam com /${s}/`
+    if (m) return t('Trecho {from} até {to}', { from: duration(Number(m[1])), to: m[2] === 'inf' ? t('o fim') : duration(Number(m[2])) })
+    return t('Capítulos que combinam com /{re}/', { re: s })
   }
 
   return (
     <div className="space-y-4">
       <Card
-        title={`Capítulos (${chapters.length})`}
+        title={t('Capítulos ({n})', { n: chapters.length })}
         actions={
           chapters.length > 0 && (
             <div className="flex gap-2">
               <Button size="sm" variant="ghost" onClick={() => setOpts((o) => ({ ...o, sections: [...new Set([...o.sections, ...chapters.map(chapterSection)])] }))}>
-                Marcar todos
+                {t('Marcar todos')}
               </Button>
               <Button size="sm" variant="ghost" onClick={() => setOpts((o) => ({ ...o, sections: o.sections.filter((s) => !chapters.some((c) => chapterSection(c) === s)) }))}>
-                Desmarcar
+                {t('Desmarcar')}
               </Button>
             </div>
           )
@@ -63,7 +64,7 @@ export default function ChaptersTab({
       >
         {chapters.length ? (
           <div className="space-y-0.5">
-            <p className="mb-2 text-xs text-muted">Marcando capítulos, só essas partes são baixadas (--download-sections).</p>
+            <p className="mb-2 text-xs text-muted">{t('Marcando capítulos, só essas partes são baixadas (--download-sections).')}</p>
             {chapters.map((c, i) => {
               const s = chapterSection(c)
               return (
@@ -79,28 +80,28 @@ export default function ChaptersTab({
             })}
           </div>
         ) : (
-          <p className="text-sm text-muted">Este vídeo não tem capítulos. Você ainda pode baixar só um trecho abaixo.</p>
+          <p className="text-sm text-muted">{t('Este vídeo não tem capítulos. Você ainda pode baixar só um trecho abaixo.')}</p>
         )}
       </Card>
 
-      <Card title="Baixar só um trecho">
+      <Card title={t('Baixar só um trecho')}>
         <div className="flex items-end gap-3">
           <div className="w-40">
-            <div className="mb-1.5 text-xs text-muted">Início</div>
+            <div className="mb-1.5 text-xs text-muted">{t('Início')}</div>
             <TextInput value={from} onChange={(e) => setFrom(e.target.value)} placeholder="1:30" onKeyDown={(e) => e.key === 'Enter' && addRange()} />
           </div>
           <div className="w-40">
-            <div className="mb-1.5 text-xs text-muted">Fim (vazio = até o fim)</div>
+            <div className="mb-1.5 text-xs text-muted">{t('Fim (vazio = até o fim)')}</div>
             <TextInput value={to} onChange={(e) => setTo(e.target.value)} placeholder="2:45" onKeyDown={(e) => e.key === 'Enter' && addRange()} />
           </div>
           <Button icon={<Plus className="h-4 w-4" />} disabled={!validRange} onClick={addRange}>
-            Adicionar trecho
+            {t('Adicionar trecho')}
           </Button>
         </div>
         <div className="mt-4 flex items-end gap-3">
           <div className="w-[332px]">
-            <div className="mb-1.5 text-xs text-muted">Ou capítulos cujo título combine com (regex)</div>
-            <TextInput value={regex} onChange={(e) => setRegex(e.target.value)} placeholder="intro|refrão" />
+            <div className="mb-1.5 text-xs text-muted">{t('Ou capítulos cujo título combine com (regex)')}</div>
+            <TextInput value={regex} onChange={(e) => setRegex(e.target.value)} placeholder={t('intro|refrão')} />
           </div>
           <Button
             icon={<Plus className="h-4 w-4" />}
@@ -110,13 +111,13 @@ export default function ChaptersTab({
               setRegex('')
             }}
           >
-            Adicionar
+            {t('Adicionar')}
           </Button>
         </div>
       </Card>
 
       {opts.sections.length > 0 && (
-        <Card title={`Trechos que serão baixados (${opts.sections.length})`} actions={<Button size="sm" variant="ghost" onClick={() => setOpts((o) => ({ ...o, sections: [] }))}>Limpar</Button>}>
+        <Card title={t('Trechos que serão baixados ({n})', { n: opts.sections.length })} actions={<Button size="sm" variant="ghost" onClick={() => setOpts((o) => ({ ...o, sections: [] }))}>{t('Limpar')}</Button>}>
           <div className="space-y-1.5">
             {opts.sections.map((s) => (
               <div key={s} className="flex items-center gap-3 rounded-lg bg-panel-2 px-3 py-2 text-sm">
@@ -131,8 +132,8 @@ export default function ChaptersTab({
             <Toggle
               checked={opts.forceKeyframes}
               onChange={(v) => setOpts((o) => ({ ...o, forceKeyframes: v }))}
-              label="Cortar no tempo exato"
-              hint="Recodifica perto dos cortes (--force-keyframes-at-cuts). Mais lento, porém sem sobras."
+              label={t('Cortar no tempo exato')}
+              hint={t('Recodifica perto dos cortes (--force-keyframes-at-cuts). Mais lento, porém sem sobras.')}
             />
           </div>
         </Card>

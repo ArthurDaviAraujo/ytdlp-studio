@@ -2,6 +2,7 @@ import { spawn, spawnSync, type ChildProcess } from 'child_process'
 import { existsSync, unlinkSync } from 'fs'
 import { extname } from 'path'
 import { getToolStatus } from './tools'
+import { t } from '../shared/i18n'
 
 const VIDEO_EXT = new Set(['.mp4', '.mkv', '.webm', '.mov', '.avi', '.flv', '.ts', '.m4v'])
 
@@ -127,7 +128,7 @@ export function convertToH264(
 ): Promise<{ ok: boolean; output: string; error: string | null }> {
   const ffmpeg = getToolStatus().ffmpeg.path
   const output = convertedPath(input)
-  if (!ffmpeg) return Promise.resolve({ ok: false, output, error: 'ffmpeg.exe não encontrado' })
+  if (!ffmpeg) return Promise.resolve({ ok: false, output, error: t('ffmpeg.exe não encontrado') })
   const args = [
     '-hide_banner', '-y', '-i', input,
     '-map', '0:v:0', '-map', '0:a?', '-map', '0:s?',
@@ -172,7 +173,7 @@ export function convertToH264(
             // arquivo parcial em uso; fica para trás
           }
         }
-        resolve({ ok: false, output, error: errTail.slice(-5).join('\n') || `ffmpeg terminou com código ${code}` })
+        resolve({ ok: false, output, error: errTail.slice(-5).join('\n') || t('ffmpeg terminou com código {code}', { code: String(code) }) })
       }
     })
   })

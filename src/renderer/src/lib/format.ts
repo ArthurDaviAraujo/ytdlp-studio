@@ -1,9 +1,12 @@
-const nf = new Intl.NumberFormat('pt-BR')
-const nf1 = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 })
-const compactNf = new Intl.NumberFormat('pt-BR', { notation: 'compact', maximumFractionDigits: 1 })
+import { locale } from '../../../shared/i18n'
 
-export const num = (n?: number | null) => (n == null ? '—' : nf.format(n))
-export const compact = (n?: number | null) => (n == null ? '—' : compactNf.format(n))
+// Os formatadores acompanham o idioma escolhido
+const nf = () => new Intl.NumberFormat(locale())
+const nf1 = () => new Intl.NumberFormat(locale(), { maximumFractionDigits: 1 })
+const compactNf = () => new Intl.NumberFormat(locale(), { notation: 'compact', maximumFractionDigits: 1 })
+
+export const num = (n?: number | null) => (n == null ? '—' : nf().format(n))
+export const compact = (n?: number | null) => (n == null ? '—' : compactNf().format(n))
 
 export function bytes(n?: number | null): string {
   if (n == null || !isFinite(n)) return '—'
@@ -13,7 +16,7 @@ export function bytes(n?: number | null): string {
     n /= 1024
     i++
   }
-  return `${i === 0 ? Math.round(n) : nf1.format(n)} ${units[i]}`
+  return `${i === 0 ? Math.round(n) : nf1().format(n)} ${units[i]}`
 }
 
 export function duration(sec?: number | null): string {
@@ -30,17 +33,17 @@ export function duration(sec?: number | null): string {
 export function ymd(s?: string | null): string {
   if (!s || !/^\d{8}$/.test(s)) return s ?? '—'
   const d = new Date(Number(s.slice(0, 4)), Number(s.slice(4, 6)) - 1, Number(s.slice(6, 8)))
-  return d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' })
+  return d.toLocaleDateString(locale(), { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 export function epoch(ts?: number | null): string {
   if (ts == null) return '—'
-  return new Date(ts * 1000).toLocaleString('pt-BR', { dateStyle: 'medium', timeStyle: 'short' })
+  return new Date(ts * 1000).toLocaleString(locale(), { dateStyle: 'medium', timeStyle: 'short' })
 }
 
 export function kbps(n?: number | null): string {
   if (n == null) return '—'
-  return n >= 1000 ? `${nf1.format(n / 1000)} Mbps` : `${Math.round(n)} kbps`
+  return n >= 1000 ? `${nf1().format(n / 1000)} Mbps` : `${Math.round(n)} kbps`
 }
 
 export const speed = (n?: number | null) => (n == null ? '—' : `${bytes(n)}/s`)

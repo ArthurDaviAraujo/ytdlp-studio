@@ -5,6 +5,7 @@ import { Button, Checkbox, Field, Segmented, Select, TextInput, Toggle, cx } fro
 import { AUDIO_FORMATS, SPONSOR_CATEGORIES, formatKind, quoteArg, type DownloadOptions, type Mode } from '../lib/args'
 import type { AppContext } from '../App'
 import ExportForm, { ENCODER_LABEL } from './ExportForm'
+import { t } from '../../../shared/i18n'
 
 function Group({ title, children, defaultOpen = true, badge }: { title: string; children: ReactNode; defaultOpen?: boolean; badge?: ReactNode }) {
   const [open, setOpen] = useState(defaultOpen)
@@ -67,25 +68,25 @@ export default function OptionsPanel({
     <aside className="flex h-full w-[392px] shrink-0 flex-col border-l border-line bg-panel">
       <div className="flex items-center gap-2 border-b border-line px-5 py-4">
         <SlidersHorizontal className="h-4 w-4 text-muted" />
-        <h2 className="text-[15px] font-semibold">Opções de download</h2>
+        <h2 className="text-[15px] font-semibold">{t('Opções de download')}</h2>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <Group title="O que baixar">
+        <Group title={t('O que baixar')}>
           <Segmented<Mode>
             value={opts.mode}
             onChange={(m) => set('mode', m)}
             options={[
-              { value: 'video', label: 'Vídeo' },
-              { value: 'audio', label: 'Só áudio' },
-              { value: 'manual', label: 'Escolhidos', disabled: isPlaylist || !hasManual }
+              { value: 'video', label: t('Vídeo') },
+              { value: 'audio', label: t('Só áudio') },
+              { value: 'manual', label: t('Escolhidos'), disabled: isPlaylist || !hasManual }
             ]}
           />
           {opts.mode === 'video' && (
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Qualidade máxima">
+              <Field label={t('Qualidade máxima')}>
                 <Select value={opts.maxHeight} onChange={(e) => set('maxHeight', Number(e.target.value))}>
-                  <option value={0}>A melhor disponível</option>
+                  <option value={0}>{t('A melhor disponível')}</option>
                   {heights.map((h) => (
                     <option key={h} value={h}>
                       {h >= 2160 ? `${h}p (${h >= 4320 ? '8K' : '4K'})` : h === 1440 ? '1440p (2K)' : `${h}p`}
@@ -93,21 +94,21 @@ export default function OptionsPanel({
                   ))}
                 </Select>
               </Field>
-              <Field label="Codec preferido">
+              <Field label={t('Codec preferido')}>
                 <Select value={opts.vcodec} onChange={(e) => set('vcodec', e.target.value)}>
-                  <option value="">Automático</option>
-                  <option value="h264">H.264 (mais compatível)</option>
+                  <option value="">{t('Automático')}</option>
+                  <option value="h264">{t('H.264 (mais compatível)')}</option>
                   <option value="h265">H.265 / HEVC</option>
                   <option value="vp9">VP9</option>
-                  <option value="av01">AV1 (menor arquivo)</option>
+                  <option value="av01">{t('AV1 (menor arquivo)')}</option>
                 </Select>
               </Field>
-              <Field label="FPS máximo">
+              <Field label={t('FPS máximo')}>
                 <Select value={opts.maxFps} onChange={(e) => set('maxFps', Number(e.target.value))}>
-                  <option value={0}>O maior disponível</option>
+                  <option value={0}>{t('O maior disponível')}</option>
                   {[60, 50, 30, 25, 24].map((f) => (
                     <option key={f} value={f}>
-                      Até {f} fps
+                      {t('Até ')}{f} fps
                     </option>
                   ))}
                 </Select>
@@ -116,20 +117,20 @@ export default function OptionsPanel({
           )}
           {opts.mode === 'audio' && (
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Formato">
+              <Field label={t('Formato')}>
                 <Select value={opts.audioFormat} onChange={(e) => set('audioFormat', e.target.value)}>
                   {AUDIO_FORMATS.map((f) => (
                     <option key={f} value={f}>
-                      {f === 'best' ? 'Original (sem converter)' : f.toUpperCase()}
+                      {f === 'best' ? t('Original (sem converter)') : f.toUpperCase()}
                     </option>
                   ))}
                 </Select>
               </Field>
-              <Field label="Qualidade">
+              <Field label={t('Qualidade')}>
                 <Select value={opts.audioQuality} onChange={(e) => set('audioQuality', e.target.value)}>
-                  <option value="0">Máxima (VBR 0)</option>
-                  <option value="2">Alta (VBR 2)</option>
-                  <option value="5">Média (VBR 5)</option>
+                  <option value="0">{t('Máxima (VBR 0)')}</option>
+                  <option value="2">{t('Alta (VBR 2)')}</option>
+                  <option value="5">{t('Média (VBR 5)')}</option>
                   <option value="320K">320 kbps</option>
                   <option value="256K">256 kbps</option>
                   <option value="192K">192 kbps</option>
@@ -141,14 +142,14 @@ export default function OptionsPanel({
           )}
           {opts.mode === 'manual' && (
             <div className="rounded-lg bg-panel-2 p-3 text-sm">
-              Formatos: <code className="text-accent">{[opts.manualVideo, ...opts.manualAudio].filter(Boolean).join(' + ')}</code>
-              <div className="mt-1 text-xs text-muted">Escolhidos na aba Formatos.{opts.manualAudio.length > 1 && ' Várias faixas de áudio no mesmo arquivo.'}</div>
+              {t('Formatos: ')}<code className="text-accent">{[opts.manualVideo, ...opts.manualAudio].filter(Boolean).join(' + ')}</code>
+              <div className="mt-1 text-xs text-muted">{t('Escolhidos na aba Formatos.')}{opts.manualAudio.length > 1 && t(' Várias faixas de áudio no mesmo arquivo.')}</div>
             </div>
           )}
           {opts.mode !== 'audio' && (
-            <Field label="Contêiner do arquivo">
+            <Field label={t('Contêiner do arquivo')}>
               <Select value={opts.container} onChange={(e) => set('container', e.target.value)}>
-                <option value="">Automático (o que vier)</option>
+                <option value="">{t('Automático (o que vier)')}</option>
                 <option value="mp4">MP4</option>
                 <option value="mkv">MKV</option>
                 <option value="webm">WebM</option>
@@ -157,45 +158,45 @@ export default function OptionsPanel({
             </Field>
           )}
           {isPlaylist && (
-            <p className="text-xs text-muted">Na playlist, a qualidade vale para cada vídeo. Escolha formatos exatos abrindo os detalhes de um vídeo.</p>
+            <p className="text-xs text-muted">{t('Na playlist, a qualidade vale para cada vídeo. Escolha formatos exatos abrindo os detalhes de um vídeo.')}</p>
           )}
         </Group>
 
         {opts.mode !== 'audio' && (
-          <Group title="Converter para H.264" defaultOpen={opts.convertH264} badge={opts.convertH264 ? <span className="text-xs text-accent">ligado</span> : null}>
+          <Group title={t('Converter para H.264')} defaultOpen={opts.convertH264} badge={opts.convertH264 ? <span className="text-xs text-accent">{t('ligado')}</span> : null}>
             <Toggle
               checked={opts.convertH264}
               onChange={(v) => set('convertH264', v)}
-              label="Converter depois de baixar"
-              hint="Para abrir em qualquer player, editor ou TV. O YouTube só oferece H.264 até 1080p."
+              label={t('Converter depois de baixar')}
+              hint={t('Para abrir em qualquer player, editor ou TV. O YouTube só oferece H.264 até 1080p.')}
               disabled={!encoders.length}
             />
             {opts.convertH264 && (
               <>
-                <Field label="Codificador">
+                <Field label={t('Codificador')}>
                   <Select value={opts.convertEncoder || encoders[0]} onChange={(e) => set('convertEncoder', e.target.value)}>
                     {encoders.map((e) => (
                       <option key={e} value={e}>
-                        {ENCODER_LABEL[e] ?? e}
+                        {t(ENCODER_LABEL[e] ?? e)}
                       </option>
                     ))}
                   </Select>
                 </Field>
-                <Toggle checked={opts.convertKeep} onChange={(v) => set('convertKeep', v)} label="Manter o arquivo original também" />
+                <Toggle checked={opts.convertKeep} onChange={(v) => set('convertKeep', v)} label={t('Manter o arquivo original também')} />
               </>
             )}
           </Group>
         )}
 
-        <Group title="Legendas" defaultOpen={subsCount > 0} badge={subsCount ? <span className="text-xs text-accent">{subsCount}</span> : null}>
+        <Group title={t('Legendas')} defaultOpen={subsCount > 0} badge={subsCount ? <span className="text-xs text-accent">{subsCount}</span> : null}>
           {subsCount ? (
             <>
               <div className="text-sm">
                 {[...opts.subsManual, ...opts.subsAuto.map((s) => `${s} (auto)`)].join(', ')}
               </div>
-              <Field label="Formato">
+              <Field label={t('Formato')}>
                 <Select value={opts.subFormat} onChange={(e) => set('subFormat', e.target.value)}>
-                  <option value="">Original</option>
+                  <option value="">{t('Original')}</option>
                   <option value="srt">SRT</option>
                   <option value="vtt">VTT</option>
                   <option value="ass">ASS</option>
@@ -203,53 +204,53 @@ export default function OptionsPanel({
                 </Select>
               </Field>
               {opts.mode !== 'audio' && (
-                <Toggle checked={opts.embedSubs} onChange={(v) => set('embedSubs', v)} label="Embutir no vídeo" hint="Desligado: salva como arquivo separado ao lado do vídeo." />
+                <Toggle checked={opts.embedSubs} onChange={(v) => set('embedSubs', v)} label={t('Embutir no vídeo')} hint={t('Desligado: salva como arquivo separado ao lado do vídeo.')} />
               )}
             </>
           ) : (
-            <p className="text-sm text-muted">{info ? 'Nenhuma escolhida. Marque idiomas na aba Legendas.' : 'Analise um link para escolher idiomas.'}</p>
+            <p className="text-sm text-muted">{info ? t('Nenhuma escolhida. Marque idiomas na aba Legendas.') : t('Analise um link para escolher idiomas.')}</p>
           )}
         </Group>
 
-        <Group title="Miniatura, metadados e extras" defaultOpen={false}>
-          <Toggle checked={opts.embedThumb} onChange={(v) => set('embedThumb', v)} label="Embutir miniatura no arquivo" hint="Vira a capa no player (--embed-thumbnail)." />
+        <Group title={t('Miniatura, metadados e extras')} defaultOpen={false}>
+          <Toggle checked={opts.embedThumb} onChange={(v) => set('embedThumb', v)} label={t('Embutir miniatura no arquivo')} hint={t('Vira a capa no player (--embed-thumbnail).')} />
           {opts.embedThumb && noProbe && (
             <div className="flex gap-2 rounded-lg bg-warn/10 p-2.5 text-xs text-warn">
-              <TriangleAlert className="h-4 w-4 shrink-0" /> Precisa do ffprobe.exe ao lado do ffmpeg.exe. Veja Configurações.
+              <TriangleAlert className="h-4 w-4 shrink-0" />{t(' Precisa do ffprobe.exe ao lado do ffmpeg.exe. Veja Configurações.')}
             </div>
           )}
-          <Toggle checked={opts.writeThumb} onChange={(v) => set('writeThumb', v)} label="Salvar miniatura como imagem" />
-          <Toggle checked={opts.allThumbs} onChange={(v) => set('allThumbs', v)} label="Salvar todas as miniaturas" hint="Todas as resoluções disponíveis." />
+          <Toggle checked={opts.writeThumb} onChange={(v) => set('writeThumb', v)} label={t('Salvar miniatura como imagem')} />
+          <Toggle checked={opts.allThumbs} onChange={(v) => set('allThumbs', v)} label={t('Salvar todas as miniaturas')} hint={t('Todas as resoluções disponíveis.')} />
           {(opts.writeThumb || opts.allThumbs || opts.embedThumb) && (
-            <Field label="Formato da miniatura">
+            <Field label={t('Formato da miniatura')}>
               <Select value={opts.thumbFormat} onChange={(e) => set('thumbFormat', e.target.value)}>
-                <option value="">Original</option>
+                <option value="">{t('Original')}</option>
                 <option value="jpg">JPG</option>
                 <option value="png">PNG</option>
                 <option value="webp">WebP</option>
               </Select>
             </Field>
           )}
-          <Toggle checked={opts.embedMeta} onChange={(v) => set('embedMeta', v)} label="Embutir metadados" hint="Título, canal, data, descrição." />
-          <Toggle checked={opts.embedChapters} onChange={(v) => set('embedChapters', v)} label="Embutir capítulos" />
-          <Toggle checked={opts.splitChapters} onChange={(v) => set('splitChapters', v)} label="Dividir em um arquivo por capítulo" />
-          <Toggle checked={opts.writeDescription} onChange={(v) => set('writeDescription', v)} label="Salvar descrição (.description)" />
-          <Toggle checked={opts.writeInfoJson} onChange={(v) => set('writeInfoJson', v)} label="Salvar todas as informações (.info.json)" />
-          <Toggle checked={opts.writeComments} onChange={(v) => set('writeComments', v)} label="Salvar comentários" hint="Vão dentro do .info.json. Pode demorar." />
-          <Toggle checked={opts.keepFiles} onChange={(v) => set('keepFiles', v)} label="Manter arquivos intermediários" hint="Guarda o vídeo e o áudio separados depois de juntar (-k)." />
+          <Toggle checked={opts.embedMeta} onChange={(v) => set('embedMeta', v)} label={t('Embutir metadados')} hint={t('Título, canal, data, descrição.')} />
+          <Toggle checked={opts.embedChapters} onChange={(v) => set('embedChapters', v)} label={t('Embutir capítulos')} />
+          <Toggle checked={opts.splitChapters} onChange={(v) => set('splitChapters', v)} label={t('Dividir em um arquivo por capítulo')} />
+          <Toggle checked={opts.writeDescription} onChange={(v) => set('writeDescription', v)} label={t('Salvar descrição (.description)')} />
+          <Toggle checked={opts.writeInfoJson} onChange={(v) => set('writeInfoJson', v)} label={t('Salvar todas as informações (.info.json)')} />
+          <Toggle checked={opts.writeComments} onChange={(v) => set('writeComments', v)} label={t('Salvar comentários')} hint={t('Vão dentro do .info.json. Pode demorar.')} />
+          <Toggle checked={opts.keepFiles} onChange={(v) => set('keepFiles', v)} label={t('Manter arquivos intermediários')} hint={t('Guarda o vídeo e o áudio separados depois de juntar (-k).')} />
         </Group>
 
-        <Group title="SponsorBlock" defaultOpen={false} badge={opts.sponsorMode !== 'off' ? <span className="text-xs text-accent">ligado</span> : null}>
+        <Group title="SponsorBlock" defaultOpen={false} badge={opts.sponsorMode !== 'off' ? <span className="text-xs text-accent">{t('ligado')}</span> : null}>
           <Segmented
             value={opts.sponsorMode}
             onChange={(v) => set('sponsorMode', v)}
             options={[
-              { value: 'off', label: 'Desligado' },
-              { value: 'mark', label: 'Marcar' },
-              { value: 'remove', label: 'Cortar' }
+              { value: 'off', label: t('Desligado') },
+              { value: 'mark', label: t('Marcar') },
+              { value: 'remove', label: t('Cortar') }
             ]}
           />
-          <p className="text-xs text-muted">Marcar cria capítulos nos trechos. Cortar remove os trechos do arquivo.</p>
+          <p className="text-xs text-muted">{t('Marcar cria capítulos nos trechos. Cortar remove os trechos do arquivo.')}</p>
           {opts.sponsorMode !== 'off' && (
             <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
               {SPONSOR_CATEGORIES.map((c) => (
@@ -258,15 +259,15 @@ export default function OptionsPanel({
                     checked={opts.sponsorCats.includes(c.id)}
                     onChange={(v) => set('sponsorCats', v ? [...opts.sponsorCats, c.id] : opts.sponsorCats.filter((x) => x !== c.id))}
                   />
-                  {c.label}
+                  {t(c.label)}
                 </label>
               ))}
             </div>
           )}
         </Group>
 
-        <Group title="Onde salvar">
-          <Field label="Pasta">
+        <Group title={t('Onde salvar')}>
+          <Field label={t('Pasta')}>
             <div className="flex gap-2">
               <TextInput value={ctx.settings.downloadDir} readOnly title={ctx.settings.downloadDir} />
               <Button
@@ -278,7 +279,7 @@ export default function OptionsPanel({
               />
             </div>
           </Field>
-          <Field label="Nome do arquivo" hint="%(title)s título · %(id)s id · %(uploader)s canal · %(upload_date)s data · %(ext)s extensão">
+          <Field label={t('Nome do arquivo')} hint={t('%(title)s título · %(id)s id · %(uploader)s canal · %(upload_date)s data · %(ext)s extensão')}>
             <TextInput
               value={template}
               onChange={(e) => setTemplate(e.target.value)}
@@ -288,24 +289,24 @@ export default function OptionsPanel({
           </Field>
         </Group>
 
-        <Group title="Avançado" defaultOpen={advancedCount > 0 || !!opts.extraArgs || opts.presets.length > 0}>
+        <Group title={t('Avançado')} defaultOpen={advancedCount > 0 || !!opts.extraArgs || opts.presets.length > 0}>
           <Button className="w-full" icon={<SlidersHorizontal className="h-4 w-4" />} onClick={onOpenAll}>
-            Todas as opções do yt-dlp
+            {t('Todas as opções do yt-dlp')}
             {advancedCount > 0 && <span className="rounded-full bg-accent px-1.5 text-[11px] text-white">{advancedCount}</span>}
           </Button>
-          <Field label="Argumentos extras" hint="Escreva como no terminal. Vão por último e têm prioridade.">
-            <TextInput value={opts.extraArgs} onChange={(e) => set('extraArgs', e.target.value)} placeholder='--limit-rate 5M --cookies-from-browser firefox' className="font-mono text-xs" />
+          <Field label={t('Argumentos extras')} hint={t('Escreva como no terminal. Vão por último e têm prioridade.')}>
+            <TextInput value={opts.extraArgs} onChange={(e) => set('extraArgs', e.target.value)} placeholder="--limit-rate 5M --cookies-from-browser firefox" className="font-mono text-xs" />
           </Field>
           <div>
             <button className="flex items-center gap-1 text-xs font-medium text-info hover:underline" onClick={() => setShowCmd(!showCmd)}>
               <ChevronDown className={cx('h-3.5 w-3.5 transition-transform', !showCmd && '-rotate-90')} />
-              Ver o comando que será executado
+              {t('Ver o comando que será executado')}
             </button>
             {showCmd && (
               <div className="mt-2 space-y-2">
                 <pre className="max-h-48 overflow-auto rounded-lg bg-bg p-3 font-mono text-[11px] leading-4 whitespace-pre-wrap break-all text-muted">{command}</pre>
                 <Button size="sm" icon={<Copy className="h-3.5 w-3.5" />} onClick={() => window.api.writeClipboard(command)}>
-                  Copiar comando
+                  {t('Copiar comando')}
                 </Button>
               </div>
             )}
@@ -314,15 +315,15 @@ export default function OptionsPanel({
 
         {opts.mode !== 'audio' && (
           <Group
-            title="Preparar para postar"
+            title={t('Preparar para postar')}
             defaultOpen={opts.exportOn}
-            badge={opts.exportOn ? <span className="text-xs text-accent">{opts.exportSettings.name}</span> : null}
+            badge={opts.exportOn ? <span className="text-xs text-accent">{t(opts.exportSettings.name)}</span> : null}
           >
             <Toggle
               checked={opts.exportOn}
               onChange={(v) => set('exportOn', v)}
-              label="Preparar depois de baixar"
-              hint="Gera mais um arquivo pronto para a rede escolhida. O original continua na pasta."
+              label={t('Preparar depois de baixar')}
+              hint={t('Gera mais um arquivo pronto para a rede escolhida. O original continua na pasta.')}
             />
             {opts.exportOn && (
               <ExportForm

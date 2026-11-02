@@ -8,6 +8,7 @@ import FormatsTab from './FormatsTab'
 import SubtitlesTab from './SubtitlesTab'
 import ChaptersTab from './ChaptersTab'
 import CommentsTab from './CommentsTab'
+import { t } from '../../../shared/i18n'
 
 export type VideoTab = 'overview' | 'formats' | 'subs' | 'thumbs' | 'chapters' | 'comments' | 'json'
 
@@ -66,7 +67,7 @@ export function VideoHeader({ info }: { info: any }) {
               {info.channel_is_verified && <BadgeCheck className="h-4 w-4 text-muted" />}
             </a>
             {info.channel_follower_count != null && (
-              <Stat icon={<Users className="h-3.5 w-3.5" />}>{compact(info.channel_follower_count)} inscritos</Stat>
+              <Stat icon={<Users className="h-3.5 w-3.5" />}>{compact(info.channel_follower_count)}{t(' inscritos')}</Stat>
             )}
             {info.uploader_id && <span className="text-muted">{info.uploader_id}</span>}
           </div>
@@ -74,7 +75,7 @@ export function VideoHeader({ info }: { info: any }) {
         <div className="flex flex-wrap gap-x-4 gap-y-2">
           {info.view_count != null && (
             <Stat icon={<Eye className="h-4 w-4" />} title={num(info.view_count)}>
-              {compact(info.view_count)} visualizações
+              {compact(info.view_count)}{t(' visualizações')}
             </Stat>
           )}
           {info.like_count != null && (
@@ -84,7 +85,7 @@ export function VideoHeader({ info }: { info: any }) {
           )}
           {info.comment_count != null && (
             <Stat icon={<MessageSquare className="h-4 w-4" />} title={num(info.comment_count)}>
-              {compact(info.comment_count)} comentários
+              {compact(info.comment_count)}{t(' comentários')}
             </Stat>
           )}
           {info.upload_date && <Stat icon={<Calendar className="h-4 w-4" />}>{ymd(info.upload_date)}</Stat>}
@@ -95,10 +96,10 @@ export function VideoHeader({ info }: { info: any }) {
           {info.live_status && LIVE[info.live_status] && (
             <Badge tone="accent">
               <Radio className="h-3 w-3" />
-              {LIVE[info.live_status]}
+              {t(LIVE[info.live_status])}
             </Badge>
           )}
-          {info.availability && <Badge>{AVAILABILITY[info.availability] ?? info.availability}</Badge>}
+          {info.availability && <Badge>{t(AVAILABILITY[info.availability] ?? info.availability)}</Badge>}
           {info.age_limit ? <Badge tone="warn">+{info.age_limit}</Badge> : null}
           {info._has_drm && <Badge tone="err">DRM</Badge>}
           {info.resolution && <Badge>{info.resolution}</Badge>}
@@ -106,10 +107,10 @@ export function VideoHeader({ info }: { info: any }) {
         </div>
         <div className="flex gap-2 pt-1">
           <Button size="sm" icon={<ExternalLink className="h-3.5 w-3.5" />} onClick={() => window.api.openExternal(info.webpage_url)}>
-            Abrir no navegador
+            {t('Abrir no navegador')}
           </Button>
           <Button size="sm" icon={<Copy className="h-3.5 w-3.5" />} onClick={() => window.api.writeClipboard(info.webpage_url)}>
-            Copiar link
+            {t('Copiar link')}
           </Button>
         </div>
       </div>
@@ -148,7 +149,7 @@ function Heatmap({ data, total }: { data: any[]; total: number }) {
       <div className="mt-1 flex justify-between text-xs text-muted">
         <span>0:00</span>
         <span>
-          Pico em {duration(peak.start_time)}–{duration(peak.end_time)}
+          {t('Pico em ')}{duration(peak.start_time)}–{duration(peak.end_time)}
         </span>
         <span>{duration(total)}</span>
       </div>
@@ -202,7 +203,7 @@ function OverviewTab({ info }: { info: any }) {
   const fields = useMemo(() => Object.entries(info).filter(([k]) => !SKIP_FIELDS.has(k)), [info])
   return (
     <div className="space-y-4">
-      <Card title="Descrição">
+      <Card title={t('Descrição')}>
         {desc ? (
           <>
             <div className={`selectable text-sm leading-relaxed whitespace-pre-wrap ${!expanded && long ? 'line-clamp-8' : ''}`}>
@@ -210,17 +211,17 @@ function OverviewTab({ info }: { info: any }) {
             </div>
             {long && (
               <button className="mt-2 text-sm font-medium text-info hover:underline" onClick={() => setExpanded(!expanded)}>
-                {expanded ? 'Mostrar menos' : 'Mostrar tudo'}
+                {expanded ? t('Mostrar menos') : t('Mostrar tudo')}
               </button>
             )}
           </>
         ) : (
-          <span className="text-sm text-muted">Sem descrição.</span>
+          <span className="text-sm text-muted">{t('Sem descrição.')}</span>
         )}
       </Card>
 
       {(info.tags?.length > 0 || info.categories?.length > 0) && (
-        <Card title="Categorias e tags">
+        <Card title={t('Categorias e tags')}>
           <div className="flex flex-wrap gap-1.5">
             {info.categories?.map((c: string) => (
               <Badge key={'c' + c} tone="info">
@@ -235,12 +236,12 @@ function OverviewTab({ info }: { info: any }) {
       )}
 
       {info.heatmap?.length > 0 && info.duration && (
-        <Card title="Partes mais assistidas">
+        <Card title={t('Partes mais assistidas')}>
           <Heatmap data={info.heatmap} total={info.duration} />
         </Card>
       )}
 
-      <Card title={`Todos os campos (${fields.length})`}>
+      <Card title={t('Todos os campos ({n})', { n: fields.length })}>
         <div className="selectable grid grid-cols-[minmax(160px,220px)_1fr] gap-x-4 text-sm">
           {fields.map(([k, v]) => (
             <div key={k} className="contents">
@@ -259,22 +260,22 @@ function OverviewTab({ info }: { info: any }) {
 
 function ThumbnailsTab({ info }: { info: any }) {
   const thumbs = [...(info.thumbnails ?? [])].reverse()
-  if (!thumbs.length) return <div className="py-10 text-center text-muted">Nenhuma miniatura disponível.</div>
+  if (!thumbs.length) return <div className="py-10 text-center text-muted">{t('Nenhuma miniatura disponível.')}</div>
   return (
     <div className="grid grid-cols-[repeat(auto-fill,minmax(210px,1fr))] gap-3">
-      {thumbs.map((t: any) => (
+      {thumbs.map((th: any) => (
         <button
-          key={t.id ?? t.url}
-          onClick={() => window.api.openExternal(t.url)}
+          key={th.id ?? th.url}
+          onClick={() => window.api.openExternal(th.url)}
           className="group overflow-hidden rounded-xl border border-line bg-panel text-left hover:border-[#3a4357]"
-          title="Abrir no navegador"
+          title={t('Abrir no navegador')}
         >
           <div className="aspect-video bg-panel-3">
-            <img src={t.url} alt="" loading="lazy" className="h-full w-full object-contain" onError={(e) => (e.currentTarget.style.opacity = '0.15')} />
+            <img src={th.url} alt="" loading="lazy" className="h-full w-full object-contain" onError={(e) => (e.currentTarget.style.opacity = '0.15')} />
           </div>
           <div className="flex items-center justify-between px-3 py-2 text-xs">
-            <span className="font-medium">{t.width && t.height ? `${t.width}×${t.height}` : t.resolution ?? 'tamanho desconhecido'}</span>
-            <span className="text-muted">id {t.id ?? '—'}</span>
+            <span className="font-medium">{th.width && th.height ? `${th.width}×${th.height}` : th.resolution ?? t('tamanho desconhecido')}</span>
+            <span className="text-muted">id {th.id ?? '—'}</span>
           </div>
         </button>
       ))}
@@ -288,10 +289,10 @@ function JsonTab({ info }: { info: any }) {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted">
-          Resposta completa do yt-dlp (<code>-J</code>), {num(text.length)} caracteres.
+          {t('Resposta completa do yt-dlp (')}<code>-J</code>), {num(text.length)}{t(' caracteres.')}
         </span>
         <Button size="sm" icon={<Copy className="h-3.5 w-3.5" />} onClick={() => window.api.writeClipboard(text)}>
-          Copiar JSON
+          {t('Copiar JSON')}
         </Button>
       </div>
       <pre className="max-h-[70vh] overflow-auto rounded-xl border border-line bg-panel p-4 font-mono text-xs leading-5">{text}</pre>
@@ -321,12 +322,12 @@ export default function VideoView({
         value={tab}
         onChange={setTab}
         tabs={[
-          { id: 'overview', label: 'Visão geral' },
-          { id: 'formats', label: 'Formatos', count: info.formats?.length ?? 0 },
-          { id: 'subs', label: 'Legendas', count: subs + auto },
-          { id: 'thumbs', label: 'Miniaturas', count: info.thumbnails?.length ?? 0 },
-          { id: 'chapters', label: 'Capítulos', count: info.chapters?.length ?? 0 },
-          { id: 'comments', label: 'Comentários', count: info.comment_count ?? null },
+          { id: 'overview', label: t('Visão geral') },
+          { id: 'formats', label: t('Formatos'), count: info.formats?.length ?? 0 },
+          { id: 'subs', label: t('Legendas'), count: subs + auto },
+          { id: 'thumbs', label: t('Miniaturas'), count: info.thumbnails?.length ?? 0 },
+          { id: 'chapters', label: t('Capítulos'), count: info.chapters?.length ?? 0 },
+          { id: 'comments', label: t('Comentários'), count: info.comment_count ?? null },
           { id: 'json', label: 'JSON' }
         ]}
       />

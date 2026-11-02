@@ -7,6 +7,7 @@ import { Button, Card, Empty, Spinner } from '../components/ui'
 import ExportForm from '../components/ExportForm'
 import FramingPreview from '../components/FramingPreview'
 import { bytes, duration, parseTime } from '../lib/format'
+import { t } from '../../../shared/i18n'
 
 const STORE_KEY = 'export-page-settings'
 const VIDEO_EXT = /\.(mp4|mkv|webm|mov|avi|m4v|ts|flv|wmv)$/i
@@ -55,8 +56,8 @@ export default function ExportPage({ ctx, jobs, source, setSource }: { ctx: AppC
   // Quadro da prévia: começa em 10% do vídeo (ou no início do trecho)
   useEffect(() => {
     if (!info) return
-    const t = parseTime(settings.start) ?? info.duration * at
-    const timer = setTimeout(() => void window.api.mediaFrame(info.path, t).then(setImage), 200)
+    const sec = parseTime(settings.start) ?? info.duration * at
+    const timer = setTimeout(() => void window.api.mediaFrame(info.path, sec).then(setImage), 200)
     return () => clearTimeout(timer)
   }, [info, settings.start])
 
@@ -83,13 +84,13 @@ export default function ExportPage({ ctx, jobs, source, setSource }: { ctx: AppC
       url: '',
       title: baseName(source),
       thumbnail: null,
-      label: `${settings.name} · ${W}×${H}${settings.fps ? ` · ${settings.fps} fps` : ''}${settings.speed !== 1 ? ` · ${settings.speed}x` : ''}`,
+      label: `${t(settings.name)} · ${W}×${H}${settings.fps ? ` · ${settings.fps} fps` : ''}${settings.speed !== 1 ? ` · ${settings.speed}x` : ''}`,
       args: [],
       convert: null,
       exportSettings: settings,
       input: source
     })
-    ctx.notify('Adicionado à fila', { label: 'Ver downloads', run: () => ctx.goTo('queue') })
+    ctx.notify(t('Adicionado à fila'), { label: t('Ver downloads'), run: () => ctx.goTo('queue') })
   }
 
   const outName = source ? `${baseName(source).replace(/\.[^.]+$/, '')}.${settings.suffix || 'editado'}.mp4` : ''
@@ -100,16 +101,16 @@ export default function ExportPage({ ctx, jobs, source, setSource }: { ctx: AppC
         <div className="mx-auto max-w-[1000px] space-y-5 p-6">
           <div className="flex items-center gap-3">
             <div className="flex-1">
-              <h1 className="text-xl font-semibold">Preparar vídeo</h1>
-              <p className="text-sm text-muted">Ajuste tamanho, enquadramento, FPS e velocidade de um vídeo do seu PC para postar.</p>
+              <h1 className="text-xl font-semibold">{t('Preparar vídeo')}</h1>
+              <p className="text-sm text-muted">{t('Ajuste tamanho, enquadramento, FPS e velocidade de um vídeo do seu PC para postar.')}</p>
             </div>
             <Button icon={<FolderOpen className="h-4 w-4" />} onClick={pick}>
-              Escolher vídeo do PC
+              {t('Escolher vídeo do PC')}
             </Button>
           </div>
 
           {!source && (
-            <Card title="Vídeos baixados recentemente">
+            <Card title={t('Vídeos baixados recentemente')}>
               {recent.length ? (
                 <div className="space-y-1">
                   {recent.map((f) => (
@@ -120,8 +121,8 @@ export default function ExportPage({ ctx, jobs, source, setSource }: { ctx: AppC
                   ))}
                 </div>
               ) : (
-                <Empty icon={<Clapperboard className="h-8 w-8" />} title="Escolha um vídeo">
-                  Use “Escolher vídeo do PC” ou o botão Preparar de um download concluído.
+                <Empty icon={<Clapperboard className="h-8 w-8" />} title={t('Escolha um vídeo')}>
+                  {t('Use “Escolher vídeo do PC” ou o botão Preparar de um download concluído.')}
                 </Empty>
               )}
             </Card>
@@ -133,17 +134,17 @@ export default function ExportPage({ ctx, jobs, source, setSource }: { ctx: AppC
               actions={
                 <div className="flex gap-2">
                   <Button size="sm" variant="ghost" onClick={() => window.api.showInFolder(source)}>
-                    Mostrar na pasta
+                    {t('Mostrar na pasta')}
                   </Button>
                   <Button size="sm" variant="ghost" onClick={() => setSource(null)}>
-                    Trocar
+                    {t('Trocar')}
                   </Button>
                 </div>
               }
             >
               {loading && (
                 <div className="flex items-center gap-2 text-sm text-muted">
-                  <Spinner /> Lendo o vídeo…
+                  <Spinner />{t(' Lendo o vídeo…')}
                 </div>
               )}
               {error && <div className="text-sm text-err">{error}</div>}
@@ -157,7 +158,7 @@ export default function ExportPage({ ctx, jobs, source, setSource }: { ctx: AppC
                     <span>{duration(info.duration)}</span>
                     <span>
                       {info.vcodec}
-                      {info.acodec ? ` + ${info.acodec}` : ' (sem áudio)'}
+                      {info.acodec ? ` + ${info.acodec}` : t(' (sem áudio)')}
                     </span>
                     <span>{bytes(info.size)}</span>
                   </div>
@@ -180,7 +181,7 @@ export default function ExportPage({ ctx, jobs, source, setSource }: { ctx: AppC
       <aside className="flex h-full w-[392px] shrink-0 flex-col border-l border-line bg-panel">
         <div className="flex items-center gap-2 border-b border-line px-5 py-4">
           <Wand2 className="h-4 w-4 text-muted" />
-          <h2 className="text-[15px] font-semibold">Preparar para postar</h2>
+          <h2 className="text-[15px] font-semibold">{t('Preparar para postar')}</h2>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
           <ExportForm
@@ -195,9 +196,9 @@ export default function ExportPage({ ctx, jobs, source, setSource }: { ctx: AppC
           />
         </div>
         <div className="space-y-2 border-t border-line p-4">
-          {outName && <div className="truncate text-xs text-muted" title={outName}>Vai gerar: {outName}</div>}
+          {outName && <div className="truncate text-xs text-muted" title={outName}>{t('Vai gerar: ')}{outName}</div>}
           <Button variant="primary" size="lg" className="w-full" icon={<Wand2 className="h-5 w-5" />} disabled={!info} onClick={run}>
-            Preparar vídeo
+            {t('Preparar vídeo')}
           </Button>
         </div>
       </aside>

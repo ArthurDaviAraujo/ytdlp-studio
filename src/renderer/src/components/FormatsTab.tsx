@@ -4,6 +4,7 @@ import { ArrowDown, ArrowUp, AudioLines, Film, Image as ImageIcon, MonitorPlay, 
 import { Badge, Button, Segmented, cx } from './ui'
 import { bytes, kbps } from '../lib/format'
 import { formatKind, formatSize, type DownloadOptions, type FormatKind } from '../lib/args'
+import { t } from '../../../shared/i18n'
 
 type Filter = 'all' | 'av' | 'v' | 'a' | 'other'
 
@@ -38,7 +39,7 @@ const COLS: Col[] = [
     id: 'res',
     label: 'Resolução',
     value: (f) => (f.height ?? 0) * 10000 + (f.width ?? 0),
-    render: (f) => (formatKind(f) === 'a' ? <span className="text-muted">áudio</span> : f.resolution ?? (f.height ? `${f.height}p` : '—'))
+    render: (f) => (formatKind(f) === 'a' ? <span className="text-muted">{t('áudio')}</span> : f.resolution ?? (f.height ? `${f.height}p` : '—'))
   },
   { id: 'fps', label: 'FPS', value: (f) => f.fps ?? null, render: (f) => (f.fps ? Math.round(f.fps) : '') },
   {
@@ -127,7 +128,7 @@ export default function FormatsTab({
       className="sticky top-0 cursor-pointer bg-panel-2 px-2.5 py-2 text-left text-xs font-medium whitespace-nowrap text-muted hover:text-text"
     >
       <span className="inline-flex items-center gap-1">
-        {c.label}
+        {t(c.label)}
         {sort.col === c.id && (sort.dir === 1 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
       </span>
     </th>
@@ -141,23 +142,23 @@ export default function FormatsTab({
             value={filter}
             onChange={setFilter}
             options={[
-              { value: 'all', label: `Todos (${counts.all})` },
-              { value: 'av', label: `Vídeo+áudio (${counts.av})`, disabled: !counts.av },
-              { value: 'v', label: `Só vídeo (${counts.v})`, disabled: !counts.v },
-              { value: 'a', label: `Só áudio (${counts.a})`, disabled: !counts.a },
-              { value: 'other', label: `Outros (${counts.other})`, disabled: !counts.other }
+              { value: 'all', label: t('Todos ({n})', { n: counts.all }) },
+              { value: 'av', label: t('Vídeo+áudio ({n})', { n: counts.av }), disabled: !counts.av },
+              { value: 'v', label: t('Só vídeo ({n})', { n: counts.v }), disabled: !counts.v },
+              { value: 'a', label: t('Só áudio ({n})', { n: counts.a }), disabled: !counts.a },
+              { value: 'other', label: t('Outros ({n})', { n: counts.other }), disabled: !counts.other }
             ]}
           />
         </div>
-        <span className="text-xs text-muted">Clique para escolher: 1 vídeo + 1 ou mais áudios, ou 1 formato completo.</span>
+        <span className="text-xs text-muted">{t('Clique para escolher: 1 vídeo + 1 ou mais áudios, ou 1 formato completo.')}</span>
       </div>
 
       {selFormats.length > 0 && (
         <div className="flex items-center gap-3 rounded-xl border border-accent/30 bg-accent/10 px-4 py-2.5 text-sm">
-          <span className="font-medium">Selecionado:</span>
+          <span className="font-medium">{t('Selecionado:')}</span>
           <span className="font-mono text-xs">{selFormats.map((f) => f.format_id).join(' + ')}</span>
           <span className="text-muted">
-            {selFormats.map((f) => `${f.ext} ${formatKind(f) === 'a' ? (f.acodec ?? 'áudio') : (f.resolution ?? '')}`).join(' · ')}
+            {selFormats.map((f) => `${f.ext} ${formatKind(f) === 'a' ? (f.acodec ?? t('áudio')) : (f.resolution ?? '')}`).join(' · ')}
           </span>
           {total > 0 && <span className="text-muted">≈ {bytes(total)}</span>}
           <Button
@@ -167,7 +168,7 @@ export default function FormatsTab({
             icon={<X className="h-3.5 w-3.5" />}
             onClick={() => setOpts((o) => ({ ...o, manualVideo: null, manualAudio: [], mode: o.mode === 'manual' ? 'video' : o.mode }))}
           >
-            Limpar
+            {t('Limpar')}
           </Button>
         </div>
       )}
@@ -188,7 +189,7 @@ export default function FormatsTab({
                 <tr
                   key={f.format_id}
                   onClick={() => toggle(f)}
-                  title={`${KIND_LABEL[kind]} — ${f.format}`}
+                  title={`${t(KIND_LABEL[kind])} — ${f.format}`}
                   className={cx(
                     'border-t border-line/60',
                     kind !== 'other' && 'cursor-pointer',

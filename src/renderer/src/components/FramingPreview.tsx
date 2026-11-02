@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as R
 import { Move, Pause, Play, Volume2, VolumeX } from 'lucide-react'
 import type { ExportSettings } from '../../../shared/types'
 import { duration as fmt, parseTime } from '../lib/format'
+import { t } from '../../../shared/i18n'
 
 /** Caminho do Windows → endereço file:// que o <video> do Electron consegue abrir */
 const fileUrl = (p: string) => encodeURI('file:///' + p.replace(/\\/g, '/')).replace(/#/g, '%23').replace(/\?/g, '%3F')
@@ -134,15 +135,15 @@ export default function FramingPreview({
       <div className="flex items-start gap-4">
         <div className="min-w-0 flex-1">
           <div className="mb-1.5 flex items-center justify-between text-xs text-muted">
-            <span>Original ({srcW}×{srcH})</span>
+            <span>{t('Original (')}{srcW}×{srcH})</span>
             {showWindow && onChange && (
               <span className="flex items-center gap-2">
-                <Move className="h-3.5 w-3.5" /> arraste · rodinha = zoom {zoom.toFixed(1)}x
+                <Move className="h-3.5 w-3.5" />{t(' arraste · rodinha = zoom ')}{zoom.toFixed(1)}x
                 <button className="rounded-full bg-panel-3 px-2 py-0.5 text-text hover:bg-line" onClick={() => onChange({ position: 50, positionY: 50 })}>
-                  Centralizar
+                  {t('Centralizar')}
                 </button>
                 <button className="rounded-full bg-panel-3 px-2 py-0.5 text-text hover:bg-line" onClick={() => onChange({ position: 50, positionY: 50, zoom: 1 })}>
-                  Resetar
+                  {t('Resetar')}
                 </button>
               </span>
             )}
@@ -172,7 +173,7 @@ export default function FramingPreview({
 
         <div className="shrink-0">
           <div className="mb-1.5 text-xs text-muted">
-            Resultado ({outW}×{outH})
+            {t('Resultado (')}{outW}×{outH})
           </div>
           <div className="relative overflow-hidden rounded-lg border border-line" style={{ width: boxW, height: boxH, background: s.framing === 'bars' && !same ? s.barColor : '#000' }}>
             {canPlay ? (
@@ -211,16 +212,16 @@ export default function FramingPreview({
 
       {canPlay && (
         <div className="flex items-center gap-3">
-          <button onClick={toggle} className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-accent text-white hover:bg-accent-hover" title={playing ? 'Pausar' : 'Tocar a prévia'}>
+          <button onClick={toggle} className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-accent text-white hover:bg-accent-hover" title={playing ? t('Pausar') : t('Tocar a prévia')}>
             {playing ? <Pause className="h-4 w-4" /> : <Play className="ml-0.5 h-4 w-4" />}
           </button>
-          <button onClick={() => setMuted(!muted)} className="text-muted hover:text-text" title={muted ? 'Ligar o som' : 'Tirar o som'}>
+          <button onClick={() => setMuted(!muted)} className="text-muted hover:text-text" title={muted ? t('Ligar o som') : t('Tirar o som')}>
             {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
           </button>
           <span className="w-12 text-right text-xs text-muted">{fmt(now)}</span>
           <input
             type="range"
-            aria-label="Momento da prévia"
+            aria-label={t('Momento da prévia')}
             min={start}
             max={end ?? Math.max(start + 1, now)}
             step={0.05}
@@ -232,7 +233,7 @@ export default function FramingPreview({
           {s.speed !== 1 && <span className="text-xs text-muted">{s.speed}x</span>}
         </div>
       )}
-      {video && failed && <p className="text-xs text-warn">Este formato não toca na prévia; o resultado final não é afetado.</p>}
+      {video && failed && <p className="text-xs text-warn">{t('Este formato não toca na prévia; o resultado final não é afetado.')}</p>}
     </div>
   )
 }

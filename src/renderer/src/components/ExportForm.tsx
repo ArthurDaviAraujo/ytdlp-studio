@@ -4,6 +4,7 @@ import type { Capabilities, ExportSettings, FrameMethod, Framing, SavedPreset } 
 import { BUILTIN_PRESETS, isV4Model, modelVersionKey, splitModelId } from '../../../shared/presets'
 import { Button, Field, Segmented, Select, TextInput, Toggle, cx } from './ui'
 import { duration, parseTime } from '../lib/format'
+import { t } from '../../../shared/i18n'
 
 export const ENCODER_LABEL: Record<string, string> = {
   h264_amf: 'Placa AMD (h264_amf)',
@@ -26,7 +27,7 @@ const MODEL_HINT: Record<string, string> = {
 
 function modelLabel(id: string): string {
   const { engine, name } = splitModelId(id)
-  const hint = MODEL_HINT[name] ?? (/-lite$/.test(name) ? 'leve' : /-heavy$/.test(name) ? 'pesado, mais lento' : /-large$/.test(name) ? 'versão maior' : '')
+  const hint = t(MODEL_HINT[name] ?? (/-lite$/.test(name) ? 'leve' : /-heavy$/.test(name) ? 'pesado, mais lento' : /-large$/.test(name) ? 'versão maior' : ''))
   return `${name}${engine ? ` · ${engine}` : ''}${hint ? ` (${hint})` : ''}`
 }
 
@@ -107,16 +108,16 @@ export default function ExportForm({
   const tooLong = value.maxDuration > 0 && outDur != null && outDur > value.maxDuration + 0.5
 
   const methods: { value: FrameMethod; label: string; disabled?: boolean }[] = [
-    { value: 'duplicate', label: 'Duplicar' },
-    { value: 'gpu', label: 'Placa AMD', disabled: !caps?.frcAmf },
-    { value: 'cpu', label: 'Processador' },
-    { value: 'ai', label: 'IA (RIFE)', disabled: !rifeModels.length }
+    { value: 'duplicate', label: t('Duplicar') },
+    { value: 'gpu', label: t('Placa AMD'), disabled: !caps?.frcAmf },
+    { value: 'cpu', label: t('Processador') },
+    { value: 'ai', label: t('IA (RIFE)'), disabled: !rifeModels.length }
   ]
   const methodHint: Record<FrameMethod, string> = {
-    duplicate: 'Repete quadros. Instantâneo, mas o movimento não fica mais suave.',
-    gpu: 'Interpolação da AMD (frc_amf) na sua placa. Rápida; dobra o FPS e completa o resto repetindo quadros.',
-    cpu: 'minterpolate do ffmpeg. Aceita qualquer FPS, mas é lento e pode distorcer movimentos rápidos.',
-    ai: 'RIFE. Roda na placa de vídeo (NVIDIA, AMD ou Intel). A melhor qualidade em movimento difícil; mais lento que a placa AMD.'
+    duplicate: t('Repete quadros. Instantâneo, mas o movimento não fica mais suave.'),
+    gpu: t('Interpolação da AMD (frc_amf) na sua placa. Rápida; dobra o FPS e completa o resto repetindo quadros.'),
+    cpu: t('minterpolate do ffmpeg. Aceita qualquer FPS, mas é lento e pode distorcer movimentos rápidos.'),
+    ai: t('RIFE. Roda na placa de vídeo (NVIDIA, AMD ou Intel). A melhor qualidade em movimento difícil; mais lento que a placa AMD.')
   }
 
   return (
@@ -125,14 +126,14 @@ export default function ExportForm({
         {BUILTIN_PRESETS.map((p) => (
           <button
             key={p.id}
-            title={p.hint}
+            title={t(p.hint)}
             onClick={() => apply({ ...p.settings })}
             className={cx(
               'rounded-lg border px-2.5 py-1 text-xs',
               value.name === p.settings.name ? 'border-accent/60 bg-accent/12 text-text' : 'border-line bg-panel-2 text-muted hover:text-text'
             )}
           >
-            {p.settings.name}
+            {t(p.settings.name)}
           </button>
         ))}
         {saved.map((p) => (
@@ -146,14 +147,14 @@ export default function ExportForm({
             <button onClick={() => apply({ ...p.settings })} className="inline-flex items-center gap-1 hover:text-text">
               <Bookmark className="h-3 w-3" /> {p.settings.name}
             </button>
-            <button title="Apagar predefinição" onClick={() => onDeletePreset(p.id)} className="rounded p-0.5 hover:bg-panel-3 hover:text-err">
+            <button title={t('Apagar predefinição')} onClick={() => onDeletePreset(p.id)} className="rounded p-0.5 hover:bg-panel-3 hover:text-err">
               <X className="h-3 w-3" />
             </button>
           </span>
         ))}
       </div>
 
-      <Sub title="Tamanho">
+      <Sub title={t('Tamanho')}>
         <Select
           value={aspect}
           onChange={(e) => {
@@ -163,63 +164,63 @@ export default function ExportForm({
         >
           {ASPECTS.map((a) => (
             <option key={a.id} value={a.id}>
-              {a.label}
+              {t(a.label)}
             </option>
           ))}
-          {aspect === 'custom' && <option value="custom">Personalizado</option>}
+          {aspect === 'custom' && <option value="custom">{t('Personalizado')}</option>}
         </Select>
         <div className="grid grid-cols-2 gap-2">
-          <Field label="Largura">
+          <Field label={t('Largura')}>
             <TextInput type="number" min={0} step={2} value={value.width} onChange={(e) => set('width', Math.max(0, Number(e.target.value) || 0))} />
           </Field>
-          <Field label="Altura">
+          <Field label={t('Altura')}>
             <TextInput type="number" min={0} step={2} value={value.height} onChange={(e) => set('height', Math.max(0, Number(e.target.value) || 0))} />
           </Field>
         </div>
-        <p className="text-xs text-faint">0 = igual ao vídeo original{source ? ` (${source.width}×${source.height})` : ''}.</p>
+        <p className="text-xs text-faint">{t('0 = igual ao vídeo original')}{source ? ` (${source.width}×${source.height})` : ''}.</p>
       </Sub>
 
       {!sameShape && (
-        <Sub title="Enquadramento">
+        <Sub title={t('Enquadramento')}>
           <Segmented<Framing>
             value={value.framing}
             onChange={(f) => set('framing', f)}
             options={[
-              { value: 'crop', label: 'Cortar' },
-              { value: 'blur', label: 'Fundo desfocado' },
-              { value: 'bars', label: 'Barras' }
+              { value: 'crop', label: t('Cortar') },
+              { value: 'blur', label: t('Fundo desfocado') },
+              { value: 'bars', label: t('Barras') }
             ]}
           />
           {value.framing === 'crop' && (
             <>
-              <Field label={`Zoom do corte: ${(value.zoom ?? 1).toFixed(1)}x`} hint="Com zoom, o recorte pode ir para qualquer canto. Na prévia: arraste o quadro e use a rodinha do mouse.">
+              <Field label={t('Zoom do corte: {zoom}x', { zoom: (value.zoom ?? 1).toFixed(1) })} hint={t('Com zoom, o recorte pode ir para qualquer canto. Na prévia: arraste o quadro e use a rodinha do mouse.')}>
                 <input type="range" min={1} max={4} step={0.05} value={value.zoom ?? 1} onChange={(e) => set('zoom', Number(e.target.value))} className="w-full accent-[#ff4d4d]" />
               </Field>
               <div className="grid grid-cols-2 gap-3">
-                <Field label={`Horizontal: ${value.position}%`}>
+                <Field label={t('Horizontal: {n}%', { n: value.position })}>
                   <input type="range" min={0} max={100} step={1} value={value.position} onChange={(e) => set('position', Number(e.target.value))} className="w-full accent-[#ff4d4d]" />
                 </Field>
-                <Field label={`Vertical: ${value.positionY ?? 50}%`}>
+                <Field label={t('Vertical: {n}%', { n: value.positionY ?? 50 })}>
                   <input type="range" min={0} max={100} step={1} value={value.positionY ?? 50} onChange={(e) => set('positionY', Number(e.target.value))} className="w-full accent-[#ff4d4d]" />
                 </Field>
               </div>
               <div className="flex gap-2">
                 <Button size="sm" onClick={() => onChange({ ...value, position: 50, positionY: 50 })}>
-                  Centralizar
+                  {t('Centralizar')}
                 </Button>
                 <Button size="sm" variant="ghost" icon={<RotateCcw className="h-3.5 w-3.5" />} onClick={() => onChange({ ...value, position: 50, positionY: 50, zoom: 1 })}>
-                  Resetar corte
+                  {t('Resetar corte')}
                 </Button>
               </div>
             </>
           )}
           {value.framing === 'blur' && (
-            <Field label={`Força do desfoque: ${value.blur}`}>
+            <Field label={t('Força do desfoque: {n}', { n: value.blur })}>
               <input type="range" min={2} max={60} step={1} value={value.blur} onChange={(e) => set('blur', Number(e.target.value))} className="w-full accent-[#ff4d4d]" />
             </Field>
           )}
           {value.framing === 'bars' && (
-            <Field label="Cor das barras">
+            <Field label={t('Cor das barras')}>
               <div className="flex items-center gap-2">
                 <input type="color" value={value.barColor} onChange={(e) => set('barColor', e.target.value)} className="h-9 w-14 cursor-pointer rounded border border-line bg-panel-2" />
                 <code className="text-xs text-muted">{value.barColor}</code>
@@ -229,41 +230,41 @@ export default function ExportForm({
         </Sub>
       )}
 
-      <Sub title="Quadros por segundo">
+      <Sub title={t('Quadros por segundo')}>
         <div className="grid grid-cols-2 gap-2">
-          <Field label="FPS final">
+          <Field label={t('FPS final')}>
             <Select value={FPS_CHOICES.includes(value.fps) ? value.fps : -1} onChange={(e) => Number(e.target.value) >= 0 && set('fps', Number(e.target.value))}>
               {FPS_CHOICES.map((f) => (
                 <option key={f} value={f}>
-                  {f === 0 ? `Manter${source?.fps ? ` (${Math.round(source.fps * 100) / 100})` : ''}` : `${f} fps`}
+                  {f === 0 ? t('Manter') + (source?.fps ? ` (${Math.round(source.fps * 100) / 100})` : '') : `${f} fps`}
                 </option>
               ))}
               {!FPS_CHOICES.includes(value.fps) && <option value={-1}>{value.fps} fps</option>}
             </Select>
           </Field>
-          <Field label="Outro valor">
-            <TextInput type="number" min={0} max={240} step={1} value={value.fps || ''} placeholder="ex.: 144" onChange={(e) => set('fps', Math.max(0, Math.min(240, Number(e.target.value) || 0)))} />
+          <Field label={t('Outro valor')}>
+            <TextInput type="number" min={0} max={240} step={1} value={value.fps || ''} placeholder={t('ex.: 144')} onChange={(e) => set('fps', Math.max(0, Math.min(240, Number(e.target.value) || 0)))} />
           </Field>
         </div>
-        <Field label="Quadros novos">
+        <Field label={t('Quadros novos')}>
           <Segmented<FrameMethod> value={value.method} onChange={(m) => set('method', m)} options={methods} />
         </Field>
         <p className="text-xs text-muted">{methodHint[value.method]}</p>
         {value.method === 'gpu' && !caps?.frcAmf && (
-          <p className="text-xs text-warn">Esta opção só existe em placas AMD. Com placa NVIDIA, use “IA (RIFE)”, que roda nela.</p>
+          <p className="text-xs text-warn">{t('Esta opção só existe em placas AMD. Com placa NVIDIA, use “IA (RIFE)”, que roda nela.')}</p>
         )}
         <p className={cx('text-xs', generates ? 'text-info' : 'text-faint')}>
           {effFps == null
-            ? 'Só é usado quando o FPS final passa do FPS do vídeo ou em câmera lenta.'
+            ? t('Só é usado quando o FPS final passa do FPS do vídeo ou em câmera lenta.')
             : generates
-              ? `Vai criar quadros: de ${Math.round(effFps * 100) / 100} para ${target} fps.`
-              : 'Com estas opções nenhum quadro novo é criado.'}
+              ? t('Vai criar quadros: de {from} para {to} fps.', { from: Math.round(effFps * 100) / 100, to: target })
+              : t('Com estas opções nenhum quadro novo é criado.')}
         </p>
         {value.method === 'ai' && rifeModels.length > 0 && (
           <div className="space-y-2 rounded-lg bg-panel-2 p-3">
-            <Field label="Placa de vídeo" hint="Num notebook com duas placas, escolha a NVIDIA ou AMD dedicada para ir mais rápido.">
+            <Field label={t('Placa de vídeo')} hint={t('Num notebook com duas placas, escolha a NVIDIA ou AMD dedicada para ir mais rápido.')}>
               <Select value={value.aiGpu ?? -1} onChange={(e) => set('aiGpu', Number(e.target.value))}>
-                <option value={-1}>Automática</option>
+                <option value={-1}>{t('Automática')}</option>
                 {caps?.gpus.map((g) => (
                   <option key={g.id} value={g.id}>
                     {g.name}
@@ -271,12 +272,12 @@ export default function ExportForm({
                 ))}
               </Select>
             </Field>
-            <Field label="Modelo de IA">
+            <Field label={t('Modelo de IA')}>
               <Select value={rifeModels.includes(value.aiModel) ? value.aiModel : rifeModels[0]} onChange={(e) => set('aiModel', e.target.value)}>
                 {GENERATIONS.map((g) => {
                   const list = rifeModels.filter((m) => g.test(modelVersionKey(m)[0]))
                   return list.length ? (
-                    <optgroup key={g.title} label={g.title}>
+                    <optgroup key={g.title} label={t(g.title)}>
                       {list.map((m) => (
                         <option key={m} value={m}>
                           {modelLabel(m)}
@@ -287,92 +288,92 @@ export default function ExportForm({
                 })}
               </Select>
             </Field>
-            <p className="text-xs text-faint">{rifeModels.length} modelos. “lite” é mais leve, “heavy” e “large” buscam mais detalhe.</p>
-            {!v4 && <p className="text-xs text-warn">Este modelo só dobra o FPS; o resto é completado repetindo quadros. Os modelos v4 aceitam qualquer FPS.</p>}
-            <Toggle checked={value.aiUhd} onChange={(v) => set('aiUhd', v)} label="Modo UHD" hint="Melhor para vídeos 4K com movimento grande." />
-            <Toggle checked={value.aiTtaSpatial} onChange={(v) => set('aiTtaSpatial', v)} label="Qualidade extra espacial (TTA-s)" hint="Menos defeitos nas bordas; mais lento." />
-            <Toggle checked={value.aiTtaTemporal} onChange={(v) => set('aiTtaTemporal', v)} label="Qualidade extra temporal (TTA-t)" hint="Movimento mais estável; mais lento." />
+            <p className="text-xs text-faint">{rifeModels.length}{t(' modelos. “lite” é mais leve, “heavy” e “large” buscam mais detalhe.')}</p>
+            {!v4 && <p className="text-xs text-warn">{t('Este modelo só dobra o FPS; o resto é completado repetindo quadros. Os modelos v4 aceitam qualquer FPS.')}</p>}
+            <Toggle checked={value.aiUhd} onChange={(v) => set('aiUhd', v)} label={t('Modo UHD')} hint={t('Melhor para vídeos 4K com movimento grande.')} />
+            <Toggle checked={value.aiTtaSpatial} onChange={(v) => set('aiTtaSpatial', v)} label={t('Qualidade extra espacial (TTA-s)')} hint={t('Menos defeitos nas bordas; mais lento.')} />
+            <Toggle checked={value.aiTtaTemporal} onChange={(v) => set('aiTtaTemporal', v)} label={t('Qualidade extra temporal (TTA-t)')} hint={t('Movimento mais estável; mais lento.')} />
             {(() => {
               const [maj, min] = modelVersionKey(value.aiModel)
               return maj === 4 && min >= 25 ? (
-                <p className="text-xs text-faint">A partir do v4.25 a comunidade marca o TTA como obsoleto: ele ainda roda, mas muda pouco o resultado.</p>
+                <p className="text-xs text-faint">{t('A partir do v4.25 a comunidade marca o TTA como obsoleto: ele ainda roda, mas muda pouco o resultado.')}</p>
               ) : null
             })()}
           </div>
         )}
       </Sub>
 
-      <Sub title="Velocidade e trecho">
-        <Field label="Velocidade">
+      <Sub title={t('Velocidade e trecho')}>
+        <Field label={t('Velocidade')}>
           <Select value={value.speed} onChange={(e) => set('speed', Number(e.target.value))}>
             {SPEEDS.map((s) => (
               <option key={s} value={s}>
-                {s === 1 ? 'Normal (1x)' : s < 1 ? `Câmera lenta ${s}x` : `Acelerado ${s}x`}
+                {s === 1 ? t('Normal (1x)') : s < 1 ? t('Câmera lenta {s}x', { s }) : t('Acelerado {s}x', { s })}
               </option>
             ))}
           </Select>
         </Field>
         <div className="grid grid-cols-2 gap-2">
-          <Field label="Início">
+          <Field label={t('Início')}>
             <TextInput value={value.start} placeholder="0:00" onChange={(e) => set('start', e.target.value)} />
           </Field>
-          <Field label="Fim">
-            <TextInput value={value.end} placeholder={source?.duration ? duration(source.duration) : 'até o fim'} onChange={(e) => set('end', e.target.value)} />
+          <Field label={t('Fim')}>
+            <TextInput value={value.end} placeholder={source?.duration ? duration(source.duration) : t('até o fim')} onChange={(e) => set('end', e.target.value)} />
           </Field>
         </div>
-        {outDur != null && <p className="text-xs text-faint">Duração final: {duration(outDur)}</p>}
+        {outDur != null && <p className="text-xs text-faint">{t('Duração final: ')}{duration(outDur)}</p>}
         {tooLong && (
           <div className="flex gap-2 rounded-lg bg-warn/10 p-2.5 text-xs text-warn">
-            <TriangleAlert className="h-4 w-4 shrink-0" /> {value.name} aceita até {duration(value.maxDuration)}. Defina início e fim.
+            <TriangleAlert className="h-4 w-4 shrink-0" /> {t(value.name)}{t(' aceita até ')}{duration(value.maxDuration)}{t('. Defina início e fim.')}
           </div>
         )}
-        <Field label="Limite de duração para avisar (segundos, 0 = sem limite)">
+        <Field label={t('Limite de duração para avisar (segundos, 0 = sem limite)')}>
           <TextInput type="number" min={0} value={value.maxDuration} onChange={(e) => set('maxDuration', Math.max(0, Number(e.target.value) || 0))} />
         </Field>
       </Sub>
 
-      <Sub title="Qualidade e arquivo">
-        <Field label={`Qualidade: ${value.quality} (menor = melhor, arquivo maior)`}>
+      <Sub title={t('Qualidade e arquivo')}>
+        <Field label={t('Qualidade: {n} (menor = melhor, arquivo maior)', { n: value.quality })}>
           <input type="range" min={14} max={32} step={1} value={value.quality} onChange={(e) => set('quality', Number(e.target.value))} className="w-full accent-[#ff4d4d]" />
         </Field>
-        <Field label="Codificador">
+        <Field label={t('Codificador')}>
           <Select value={value.encoder} onChange={(e) => set('encoder', e.target.value)}>
-            <option value="">Automático{caps?.encoders[0] ? ` (${ENCODER_LABEL[caps.encoders[0]] ?? caps.encoders[0]})` : ''}</option>
+            <option value="">{t('Automático')}{caps?.encoders[0] ? ` (${t(ENCODER_LABEL[caps.encoders[0]] ?? caps.encoders[0])})` : ''}</option>
             {caps?.encoders.map((e) => (
               <option key={e} value={e}>
-                {ENCODER_LABEL[e] ?? e}
+                {t(ENCODER_LABEL[e] ?? e)}
               </option>
             ))}
           </Select>
         </Field>
-        <Field label="Limite de taxa de bits (kbps, 0 = sem limite)">
+        <Field label={t('Limite de taxa de bits (kbps, 0 = sem limite)')}>
           <TextInput type="number" min={0} step={500} value={value.maxBitrate} onChange={(e) => set('maxBitrate', Math.max(0, Number(e.target.value) || 0))} />
         </Field>
-        <Toggle checked={value.audio} onChange={(v) => set('audio', v)} label="Manter o áudio" hint="Desligado: vídeo mudo, para pôr música no próprio app da rede." />
+        <Toggle checked={value.audio} onChange={(v) => set('audio', v)} label={t('Manter o áudio')} hint={t('Desligado: vídeo mudo, para pôr música no próprio app da rede.')} />
         {value.audio && (
-          <Field label="Qualidade do áudio">
+          <Field label={t('Qualidade do áudio')}>
             <Select value={value.audioKbps} onChange={(e) => set('audioKbps', Number(e.target.value))}>
               {[96, 128, 160, 192, 256, 320].map((k) => (
                 <option key={k} value={k}>
-                  AAC {k} kbps
+                  {t('AAC ')}{k} kbps
                 </option>
               ))}
             </Select>
           </Field>
         )}
-        <Field label="Final do nome do arquivo">
+        <Field label={t('Final do nome do arquivo')}>
           <TextInput value={value.suffix} onChange={(e) => set('suffix', e.target.value.replace(/[\\/:*?"<>|]/g, ''))} className="font-mono text-xs" />
         </Field>
       </Sub>
 
       <div className="flex flex-wrap items-center gap-2 border-t border-line pt-3">
         {naming == null ? (
-          <Button size="sm" icon={<Bookmark className="h-3.5 w-3.5" />} onClick={() => setNaming(value.name === 'Personalizado' ? '' : `${value.name} (meu)`)}>
-            Salvar como predefinição
+          <Button size="sm" icon={<Bookmark className="h-3.5 w-3.5" />} onClick={() => setNaming(value.name === 'Personalizado' ? '' : t('{name} (meu)', { name: t(value.name) }))}>
+            {t('Salvar como predefinição')}
           </Button>
         ) : (
           <>
-            <TextInput autoFocus value={naming} placeholder="Nome, ex.: Meu TikTok 60 fps" onChange={(e) => setNaming(e.target.value)} className="h-7 flex-1 text-xs" />
+            <TextInput autoFocus value={naming} placeholder={t('Nome, ex.: Meu TikTok 60 fps')} onChange={(e) => setNaming(e.target.value)} className="h-7 flex-1 text-xs" />
             <Button
               size="sm"
               variant="primary"
@@ -383,10 +384,10 @@ export default function ExportForm({
                 setNaming(null)
               }}
             >
-              Salvar
+              {t('Salvar')}
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setNaming(null)}>
-              Cancelar
+              {t('Cancelar')}
             </Button>
           </>
         )}
@@ -394,13 +395,13 @@ export default function ExportForm({
           const builtin = BUILTIN_PRESETS.find((p) => p.settings.name === value.name)?.settings ?? saved.find((p) => p.settings.name === value.name)?.settings
           return builtin ? (
             <Button size="sm" variant="ghost" icon={<RotateCcw className="h-3.5 w-3.5" />} onClick={() => apply({ ...builtin })}>
-              Restaurar
+              {t('Restaurar')}
             </Button>
           ) : null
         })()}
         {saved.length > 0 && (
           <span className="ml-auto inline-flex items-center gap-1 text-xs text-faint">
-            <Trash2 className="h-3 w-3" /> apague no x da predefinição
+            <Trash2 className="h-3 w-3" />{t(' apague no x da predefinição')}
           </span>
         )}
       </div>

@@ -5,6 +5,7 @@ import type { AppContext } from '../App'
 import { Badge, Button, Empty, ProgressBar, cx } from '../components/ui'
 import { bytes, duration, speed } from '../lib/format'
 import { quoteArg } from '../lib/args'
+import { locale, t } from '../../../shared/i18n'
 
 const STATUS: Record<Job['status'], { label: string; tone: 'neutral' | 'accent' | 'ok' | 'warn' | 'err' | 'info' }> = {
   queued: { label: 'Na fila', tone: 'neutral' },
@@ -52,11 +53,11 @@ function JobCard({ job, onRemoved, onPrepare }: { job: Job; onRemoved: (ids: str
   const st = STATUS[job.status]
   const active = job.status === 'running' || job.status === 'converting'
   const details = !active ? [] : [
-    job.percent != null ? `${job.percent.toFixed(1).replace('.', ',')}%` : null,
-    job.downloadedBytes != null ? `${bytes(job.downloadedBytes)}${job.totalBytes ? ` de ${bytes(job.totalBytes)}` : ''}` : null,
+    job.percent != null ? `${job.percent.toLocaleString(locale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%` : null,
+    job.downloadedBytes != null ? (job.totalBytes ? t('{done} de {total}', { done: bytes(job.downloadedBytes), total: bytes(job.totalBytes) }) : bytes(job.downloadedBytes)) : null,
     job.speed != null ? speed(job.speed) : null,
-    job.eta != null ? `faltam ${duration(job.eta)}` : null,
-    job.fragment ? `fragmento ${job.fragment}` : null
+    job.eta != null ? t('faltam {time}', { time: duration(job.eta) }) : null,
+    job.fragment ? t('fragmento {n}', { n: job.fragment }) : null
   ].filter(Boolean)
 
   return (
@@ -76,7 +77,7 @@ function JobCard({ job, onRemoved, onPrepare }: { job: Job; onRemoved: (ids: str
             <Badge tone={st.tone}>
               {job.status === 'done' && <CircleCheck className="h-3 w-3" />}
               {job.status === 'error' && <CircleX className="h-3 w-3" />}
-              {st.label}
+              {t(st.label)}
             </Badge>
           </div>
 
@@ -85,14 +86,14 @@ function JobCard({ job, onRemoved, onPrepare }: { job: Job; onRemoved: (ids: str
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
             {job.item && (
               <span className="text-text">
-                Item {job.item.index} de {job.item.count}: {job.item.title}
+                {t('Item {i} de {n}', { i: job.item.index, n: job.item.count })}: {job.item.title}
               </span>
             )}
-            <span>{job.stage}</span>
+            <span>{t(job.stage)}</span>
             {details.length > 0 && <span>{details.join(' · ')}</span>}
             {job.warnings > 0 && (
               <span className="inline-flex items-center gap-1 text-warn">
-                <TriangleAlert className="h-3 w-3" /> {job.warnings} aviso{job.warnings > 1 ? 's' : ''}
+                <TriangleAlert className="h-3 w-3" /> {job.warnings > 1 ? t('{n} avisos', { n: job.warnings }) : t('1 aviso')}
               </span>
             )}
           </div>
@@ -108,14 +109,14 @@ function JobCard({ job, onRemoved, onPrepare }: { job: Job; onRemoved: (ids: str
                     {baseName(f)}
                   </span>
                   <button className="flex items-center gap-1 text-muted hover:text-text" onClick={() => window.api.openPath(f)}>
-                    <Play className="h-3.5 w-3.5" /> Abrir
+                    <Play className="h-3.5 w-3.5" />{t(' Abrir')}
                   </button>
                   <button className="flex items-center gap-1 text-muted hover:text-text" onClick={() => window.api.showInFolder(f)}>
-                    <FolderOpen className="h-3.5 w-3.5" /> Pasta
+                    <FolderOpen className="h-3.5 w-3.5" />{t(' Pasta')}
                   </button>
                   {job.status === 'done' && isVideo(f) && (
                     <button className="flex items-center gap-1 text-muted hover:text-text" onClick={() => onPrepare(f)}>
-                      <Wand2 className="h-3.5 w-3.5" /> Preparar
+                      <Wand2 className="h-3.5 w-3.5" />{t(' Preparar')}
                     </button>
                   )}
                 </div>
@@ -126,25 +127,25 @@ function JobCard({ job, onRemoved, onPrepare }: { job: Job; onRemoved: (ids: str
           <div className="flex flex-wrap gap-2 pt-1">
             {(active || job.status === 'queued') && (
               <Button size="sm" variant="danger" icon={<X className="h-3.5 w-3.5" />} onClick={() => window.api.cancelJob(job.id)}>
-                Cancelar
+                {t('Cancelar')}
               </Button>
             )}
             {(job.status === 'error' || job.status === 'canceled' || job.status === 'done') && (
               <Button size="sm" icon={<RotateCcw className="h-3.5 w-3.5" />} onClick={() => window.api.retryJob(job.id)}>
-                {job.status === 'done' ? 'Baixar de novo' : 'Tentar de novo'}
+                {job.status === 'done' ? t('Baixar de novo') : t('Tentar de novo')}
               </Button>
             )}
             <Button size="sm" variant="ghost" icon={<ScrollText className="h-3.5 w-3.5" />} onClick={() => setShowLog(!showLog)}>
-              {showLog ? 'Esconder log' : 'Ver log'}
+              {showLog ? t('Esconder log') : t('Ver log')}
             </Button>
             {job.command.length > 0 && (
               <Button size="sm" variant="ghost" icon={<Copy className="h-3.5 w-3.5" />} onClick={() => window.api.writeClipboard(job.command.map(quoteArg).join(' '))}>
-                Copiar comando
+                {t('Copiar comando')}
               </Button>
             )}
             {!active && (
               <Button size="sm" variant="ghost" icon={<Trash2 className="h-3.5 w-3.5" />} onClick={() => window.api.removeJob(job.id).then(onRemoved)}>
-                Remover da lista
+                {t('Remover da lista')}
               </Button>
             )}
           </div>
@@ -166,21 +167,21 @@ export default function QueuePage({ ctx, jobs, onRemoved }: { ctx: AppContext; j
       <div className="mx-auto max-w-[1100px] space-y-4 p-6">
         <div className="flex items-center gap-4">
           <div className="flex-1">
-            <h1 className="text-xl font-semibold">Downloads</h1>
+            <h1 className="text-xl font-semibold">{t('Downloads')}</h1>
             <p className="text-sm text-muted">
-              {active} baixando · {queued} na fila · {finished} finalizados · até {ctx.settings.concurrency} ao mesmo tempo
+              {active}{t(' baixando · ')}{queued}{t(' na fila · ')}{finished}{t(' finalizados · até ')}{ctx.settings.concurrency}{t(' ao mesmo tempo')}
             </p>
           </div>
           <Button icon={<FolderOpen className="h-4 w-4" />} onClick={() => window.api.openPath(ctx.settings.downloadDir)}>
-            Abrir pasta
+            {t('Abrir pasta')}
           </Button>
           <Button variant="ghost" icon={<Trash2 className="h-4 w-4" />} disabled={!finished} onClick={() => window.api.clearFinished().then(onRemoved)}>
-            Limpar finalizados
+            {t('Limpar finalizados')}
           </Button>
         </div>
         {sorted.length === 0 ? (
-          <Empty icon={<ListVideo className="h-8 w-8" />} title="Nenhum download ainda">
-            Analise um link na aba Baixar e clique em Baixar.
+          <Empty icon={<ListVideo className="h-8 w-8" />} title={t('Nenhum download ainda')}>
+            {t('Analise um link na aba Baixar e clique em Baixar.')}
           </Empty>
         ) : (
           sorted.map((j) => <JobCard key={j.id} job={j} onRemoved={onRemoved} onPrepare={ctx.openExport} />)

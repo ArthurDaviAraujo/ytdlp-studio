@@ -1,8 +1,10 @@
 import { useState, type ReactNode } from 'react'
 import { CircleCheck, CircleX, FolderOpen, RefreshCw, TriangleAlert } from 'lucide-react'
 import type { JsRuntimeChoice } from '../../../shared/types'
+import { LANGS, type Lang } from '../../../shared/i18n'
 import type { AppContext } from '../App'
 import { Badge, Button, Card, Field, Select, Spinner, TextInput, Toggle } from '../components/ui'
+import { t } from '../../../shared/i18n'
 
 function Status({ ok, children }: { ok: boolean; children: ReactNode }) {
   return (
@@ -28,7 +30,7 @@ function PathField({
 }) {
   const [text, setText] = useState(value)
   return (
-    <Field label={label} hint="Vazio = procurar automaticamente (pasta do app, pasta acima do projeto e PATH).">
+    <Field label={label} hint={t('Vazio = procurar automaticamente (pasta do app, pasta acima do projeto e PATH).')}>
       <div className="flex gap-2">
         <TextInput value={text} placeholder={placeholder} onChange={(e) => setText(e.target.value)} onBlur={() => text !== value && onSave(text.trim())} />
         <Button
@@ -41,7 +43,7 @@ function PathField({
             }
           }}
         >
-          Procurar
+          {t('Procurar')}
         </Button>
       </div>
     </Field>
@@ -49,7 +51,7 @@ function PathField({
 }
 
 export default function SettingsPage({ ctx }: { ctx: AppContext }) {
-  const { settings: s, tools: t } = ctx
+  const { settings: s, tools: tl } = ctx
   const [channel, setChannel] = useState('stable')
   const [updating, setUpdating] = useState(false)
   const [updateOut, setUpdateOut] = useState<string | null>(null)
@@ -70,52 +72,64 @@ export default function SettingsPage({ ctx }: { ctx: AppContext }) {
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-[900px] space-y-5 p-6">
         <div className="flex items-center gap-4">
-          <h1 className="flex-1 text-xl font-semibold">Configurações</h1>
+          <h1 className="flex-1 text-xl font-semibold">{t('Configurações')}</h1>
           <Button icon={<RefreshCw className="h-4 w-4" />} onClick={ctx.refreshTools}>
-            Verificar programas de novo
+            {t('Verificar programas de novo')}
           </Button>
         </div>
 
+        <Card title={t('Idioma (Language)')}>
+          <Field label={t('Idioma do app')}>
+            <Select value={s.language} onChange={(e) => ctx.saveSettings({ language: e.target.value as Lang })}>
+              {LANGS.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </Card>
+
         <Card title="yt-dlp">
           <div className="space-y-4">
-            <Status ok={!!t.ytdlp.path}>
-              {t.ytdlp.path ? (
+            <Status ok={!!tl.ytdlp.path}>
+              {tl.ytdlp.path ? (
                 <>
-                  Versão {t.ytdlp.version} · <span className="text-muted">{t.ytdlp.path}</span>
+                  {t('Versão ')}{tl.ytdlp.version} · <span className="text-muted">{tl.ytdlp.path}</span>
                 </>
               ) : (
-                'yt-dlp.exe não encontrado'
+                t('yt-dlp.exe não encontrado')
               )}
             </Status>
             <PathField
-              label="Caminho do yt-dlp.exe"
+              label={t('Caminho do yt-dlp.exe')}
               value={s.ytdlpPath}
-              placeholder={t.ytdlp.path ?? 'C:\\caminho\\yt-dlp.exe'}
+              placeholder={tl.ytdlp.path ?? 'C:\\caminho\\yt-dlp.exe'}
               onSave={(v) => ctx.saveSettings({ ytdlpPath: v })}
               pick={() => window.api.pickFile(s.ytdlpPath, 'yt-dlp', ['exe'])}
             />
             <div className="flex items-end gap-3">
               <div className="w-56">
-                <Field label="Canal de atualização">
+                <Field label={t('Canal de atualização')}>
                   <Select value={channel} onChange={(e) => setChannel(e.target.value)}>
-                    <option value="stable">Estável (recomendado)</option>
-                    <option value="nightly">Nightly (diário)</option>
-                    <option value="master">Master (a cada commit)</option>
+                    <option value="stable">{t('Estável (recomendado)')}</option>
+                    <option value="nightly">{t('Nightly (diário)')}</option>
+                    <option value="master">{t('Master (a cada commit)')}</option>
                   </Select>
                 </Field>
               </div>
-              <Button variant="primary" disabled={!t.ytdlp.path || updating} icon={updating ? <Spinner /> : <RefreshCw className="h-4 w-4" />} onClick={update}>
-                {updating ? 'Atualizando…' : 'Atualizar yt-dlp'}
+              <Button variant="primary" disabled={!tl.ytdlp.path || updating} icon={updating ? <Spinner /> : <RefreshCw className="h-4 w-4" />} onClick={update}>
+                {updating ? t('Atualizando…') : t('Atualizar yt-dlp')}
               </Button>
             </div>
-            <p className="text-xs text-muted">Sites como o YouTube mudam com frequência. Se um download parar de funcionar, atualizar costuma resolver.</p>
+            <p className="text-xs text-muted">{t('Sites como o YouTube mudam com frequência. Se um download parar de funcionar, atualizar costuma resolver.')}</p>
             <div className="flex items-center gap-3">
               <div className="flex-1">
                 <Toggle
                   checked={s.checkUpdates}
                   onChange={(v) => ctx.saveSettings({ checkUpdates: v })}
-                  label="Avisar quando sair versão nova"
-                  hint="Ao abrir o app, consulta o GitHub do yt-dlp e mostra um aviso no menu lateral."
+                  label={t('Avisar quando sair versão nova')}
+                  hint={t('Ao abrir o app, consulta o GitHub do yt-dlp e mostra um aviso no menu lateral.')}
                 />
               </div>
               <Button
@@ -126,10 +140,10 @@ export default function SettingsPage({ ctx }: { ctx: AppContext }) {
                   setChecking(true)
                   const r = await window.api.checkYtdlpUpdate()
                   setChecking(false)
-                  setCheckMsg(r.error ? `Não consegui consultar: ${r.error}` : r.newer ? `Versão nova: ${r.latest} (você tem ${r.current})` : `Você está na mais nova (${r.current})`)
+                  setCheckMsg(r.error ? t('Não consegui consultar: {error}', { error: r.error }) : r.newer ? t('Versão nova: {latest} (você tem {current})', { latest: r.latest ?? '', current: r.current ?? '' }) : t('Você está na mais nova ({current})', { current: r.current ?? '' }))
                 }}
               >
-                Verificar agora
+                {t('Verificar agora')}
               </Button>
             </div>
             {checkMsg && <p className="text-xs text-info">{checkMsg}</p>}
@@ -139,70 +153,70 @@ export default function SettingsPage({ ctx }: { ctx: AppContext }) {
 
         <Card title="FFmpeg">
           <div className="space-y-4">
-            <Status ok={!!t.ffmpeg.path}>
-              {t.ffmpeg.path ? (
+            <Status ok={!!tl.ffmpeg.path}>
+              {tl.ffmpeg.path ? (
                 <>
-                  ffmpeg {t.ffmpeg.version} · <span className="text-muted">{t.ffmpeg.path}</span>
+                  ffmpeg {tl.ffmpeg.version} · <span className="text-muted">{tl.ffmpeg.path}</span>
                 </>
               ) : (
-                'ffmpeg.exe não encontrado: sem ele não dá para juntar vídeo e áudio nem converter'
+                t('ffmpeg.exe não encontrado: sem ele não dá para juntar vídeo e áudio nem converter')
               )}
             </Status>
-            <Status ok={!!t.ffprobe.path}>
-              {t.ffprobe.path ? (
+            <Status ok={!!tl.ffprobe.path}>
+              {tl.ffprobe.path ? (
                 <>
-                  ffprobe · <span className="text-muted">{t.ffprobe.path}</span>
+                  {t('ffprobe · ')}<span className="text-muted">{tl.ffprobe.path}</span>
                 </>
               ) : (
-                'ffprobe.exe não encontrado'
+                t('ffprobe.exe não encontrado')
               )}
             </Status>
-            {!t.ffprobe.path && (
+            {!tl.ffprobe.path && (
               <div className="flex gap-2 rounded-lg border border-warn/30 bg-warn/10 p-3 text-sm text-warn">
                 <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
                 <div>
-                  Sem o ffprobe, “embutir miniatura” e algumas correções dão erro. Ele vem no mesmo pacote do ffmpeg (build “essentials” da gyan.dev, pasta
-                  <code> bin</code>). Coloque o <code>ffprobe.exe</code> ao lado do <code>ffmpeg.exe</code> e clique em “Verificar programas de novo”.
+                  {t('Sem o ffprobe, “embutir miniatura” e algumas correções dão erro. Ele vem no mesmo pacote do ffmpeg (build “essentials” da gyan.dev, pasta')}
+                  <code> bin</code>{t('). Coloque o ')}<code>ffprobe.exe</code>{t(' ao lado do ')}<code>ffmpeg.exe</code>{t(' e clique em “Verificar programas de novo”.')}
                 </div>
               </div>
             )}
             <PathField
-              label="Caminho do ffmpeg.exe"
+              label={t('Caminho do ffmpeg.exe')}
               value={s.ffmpegPath}
-              placeholder={t.ffmpeg.path ?? 'C:\\caminho\\ffmpeg.exe'}
+              placeholder={tl.ffmpeg.path ?? 'C:\\caminho\\ffmpeg.exe'}
               onSave={(v) => ctx.saveSettings({ ffmpegPath: v })}
               pick={() => window.api.pickFile(s.ffmpegPath, 'ffmpeg', ['exe'])}
             />
           </div>
         </Card>
 
-        <Card title="Runtime JavaScript (necessário para o YouTube)">
+        <Card title={t('Runtime JavaScript (necessário para o YouTube)')}>
           <div className="space-y-4">
-            <Status ok={!!t.jsRuntime}>
-              {t.jsRuntime ? (
+            <Status ok={!!tl.jsRuntime}>
+              {tl.jsRuntime ? (
                 <>
-                  Usando {t.jsRuntime.name} · <span className="text-muted">{t.jsRuntime.path}</span>
+                  {t('Usando ')}{tl.jsRuntime.name} · <span className="text-muted">{tl.jsRuntime.path}</span>
                 </>
               ) : (
-                'Nenhum runtime: o YouTube pode esconder formatos ou falhar'
+                t('Nenhum runtime: o YouTube pode esconder formatos ou falhar')
               )}
             </Status>
             <p className="text-xs text-muted">
-              O YouTube exige resolver um desafio em JavaScript. O yt-dlp procura o Deno sozinho; com o Node, o app passa <code>--js-runtimes node</code>.
+              {t('O YouTube exige resolver um desafio em JavaScript. O yt-dlp procura o Deno sozinho; com o Node, o app passa ')}<code>--js-runtimes node</code>.
             </p>
             <div className="grid grid-cols-[220px_1fr] gap-3">
-              <Field label="Qual usar">
+              <Field label={t('Qual usar')}>
                 <Select value={s.jsRuntime} onChange={(e) => ctx.saveSettings({ jsRuntime: e.target.value as JsRuntimeChoice })}>
-                  <option value="auto">Automático (Deno, depois Node)</option>
+                  <option value="auto">{t('Automático (Deno, depois Node)')}</option>
                   <option value="deno">Deno</option>
                   <option value="node">Node.js</option>
-                  <option value="none">Nenhum</option>
+                  <option value="none">{t('Nenhum')}</option>
                 </Select>
               </Field>
               <PathField
-                label="Caminho do executável (opcional)"
+                label={t('Caminho do executável (opcional)')}
                 value={s.jsRuntimePath}
-                placeholder={t.jsRuntime?.path ?? 'C:\\caminho\\node.exe'}
+                placeholder={tl.jsRuntime?.path ?? 'C:\\caminho\\node.exe'}
                 onSave={(v) => ctx.saveSettings({ jsRuntimePath: v })}
                 pick={() => window.api.pickFile(s.jsRuntimePath, 'Runtime', ['exe'])}
               />
@@ -210,21 +224,21 @@ export default function SettingsPage({ ctx }: { ctx: AppContext }) {
           </div>
         </Card>
 
-        <Card title="Criação de quadros (FPS)">
+        <Card title={t('Criação de quadros (FPS)')}>
           <div className="space-y-4">
             <Status ok={!!ctx.caps?.frcAmf}>
-              {ctx.caps?.frcAmf ? 'Placa AMD (frc_amf) disponível' : 'Placa AMD (frc_amf) indisponível nesta máquina'}
+              {ctx.caps?.frcAmf ? t('Placa AMD (frc_amf) disponível') : t('Placa AMD (frc_amf) indisponível nesta máquina')}
             </Status>
-            <Status ok={t.rife.models.length > 0}>
-              {t.rife.models.length ? `IA (RIFE) com ${t.rife.models.length} modelos` : 'IA (RIFE) não encontrada: a opção “IA” fica desligada'}
+            <Status ok={tl.rife.models.length > 0}>
+              {tl.rife.models.length ? t('IA (RIFE) com {n} modelos', { n: tl.rife.models.length }) : t('IA (RIFE) não encontrada: a opção “IA” fica desligada')}
             </Status>
-            {[...new Set(Object.values(t.rife.info).map((m) => m.exe))].map((exe) => {
-              const models = t.rife.models.filter((id) => t.rife.info[id].exe === exe)
-              const engine = t.rife.info[models[0]]?.engine
+            {[...new Set(Object.values(tl.rife.info).map((m) => m.exe))].map((exe) => {
+              const models = tl.rife.models.filter((id) => tl.rife.info[id].exe === exe)
+              const engine = tl.rife.info[models[0]]?.engine
               return (
                 <details key={exe} className="rounded-lg bg-panel-2 px-3 py-2 text-sm">
                   <summary className="cursor-pointer">
-                    {engine ? `Instalação “${engine}”` : 'Instalação principal'} · {models.length} modelos · <span className="text-muted">{exe}</span>
+                    {engine ? t('Instalação “{name}”', { name: engine }) : t('Instalação principal')} · {models.length}{t(' modelos · ')}<span className="text-muted">{exe}</span>
                   </summary>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {models.map((m) => (
@@ -235,23 +249,23 @@ export default function SettingsPage({ ctx }: { ctx: AppContext }) {
               )
             })}
             <PathField
-              label="Caminho do rife-ncnn-vulkan.exe"
+              label={t('Caminho do rife-ncnn-vulkan.exe')}
               value={s.rifePath}
-              placeholder={t.rife.path ?? 'D:\\yt-dlp\\rife\\rife-ncnn-vulkan.exe'}
+              placeholder={tl.rife.path ?? 'D:\\yt-dlp\\rife\\rife-ncnn-vulkan.exe'}
               onSave={(v) => ctx.saveSettings({ rifePath: v })}
               pick={() => window.api.pickFile(s.rifePath, 'RIFE', ['exe'])}
             />
             <p className="text-xs text-muted">
-              Para usar mais modelos, coloque a pasta de cada um (com <code>flownet.param</code> e <code>flownet.bin</code>) ao lado de um{' '}
-              <code>rife-ncnn-vulkan.exe</code>. Outra instalação inteira também vale: uma pasta <code>rife-alguma-coisa</code> ao lado da pasta{' '}
-              <code>rife</code>. Depois clique em “Verificar programas de novo”.
+              {t('Para usar mais modelos, coloque a pasta de cada um (com ')}<code>flownet.param</code>{t(' e ')}<code>flownet.bin</code>{t(') ao lado de um')}{' '}
+              <code>rife-ncnn-vulkan.exe</code>{t('. Outra instalação inteira também vale: uma pasta ')}<code>{t('rife-alguma-coisa')}</code>{t(' ao lado da pasta')}{' '}
+              <code>rife</code>{t('. Depois clique em “Verificar programas de novo”.')}
             </p>
           </div>
         </Card>
 
-        <Card title="Downloads">
+        <Card title={t('Downloads')}>
           <div className="space-y-4">
-            <Field label="Pasta de destino">
+            <Field label={t('Pasta de destino')}>
               <div className="flex gap-2">
                 <TextInput value={s.downloadDir} readOnly />
                 <Button
@@ -261,16 +275,16 @@ export default function SettingsPage({ ctx }: { ctx: AppContext }) {
                     if (d) await ctx.saveSettings({ downloadDir: d })
                   }}
                 >
-                  Escolher
+                  {t('Escolher')}
                 </Button>
               </div>
             </Field>
             <Field
-              label="Modelo do nome do arquivo"
+              label={t('Modelo do nome do arquivo')}
               hint={
                 <>
-                  Campos do yt-dlp entre <code>%(…)s</code>. Ex.: <code>%(uploader)s/%(title)s.%(ext)s</code> cria uma pasta por canal;{' '}
-                  <code>%(playlist_index)03d - %(title)s.%(ext)s</code> numera os itens da playlist.
+                  {t('Campos do yt-dlp entre ')}<code>%(…)s</code>{t('. Ex.: ')}<code>%(uploader)s/%(title)s.%(ext)s</code>{t(' cria uma pasta por canal;')}{' '}
+                  <code>%(playlist_index)03d - %(title)s.%(ext)s</code>{t(' numera os itens da playlist.')}
                 </>
               }
             >
@@ -282,7 +296,7 @@ export default function SettingsPage({ ctx }: { ctx: AppContext }) {
               />
             </Field>
             <div className="w-56">
-              <Field label="Downloads ao mesmo tempo">
+              <Field label={t('Downloads ao mesmo tempo')}>
                 <Select value={s.concurrency} onChange={(e) => ctx.saveSettings({ concurrency: Number(e.target.value) })}>
                   {[1, 2, 3, 4, 5].map((n) => (
                     <option key={n} value={n}>

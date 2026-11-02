@@ -5,6 +5,7 @@ import { Badge, Button, Checkbox, cx } from './ui'
 import { compact, duration, ymd } from '../lib/format'
 import type { DownloadOptions } from '../lib/args'
 import { thumbOf } from './VideoView'
+import { t } from '../../../shared/i18n'
 
 /** "1,3,5-7" → [1,3,5,6,7] */
 function parseItems(s: string, count: number): Set<number> {
@@ -64,19 +65,19 @@ export default function PlaylistView({
         {thumb && <img src={thumb} alt="" className="aspect-video w-[300px] shrink-0 rounded-xl border border-line object-cover" />}
         <div className="min-w-0 flex-1 space-y-3">
           <Badge tone="info">
-            <ListVideo className="h-3 w-3" /> Playlist · {info.extractor_key}
+            <ListVideo className="h-3 w-3" />{t(' Playlist · ')}{info.extractor_key}
           </Badge>
           <h1 className="selectable text-xl leading-snug font-semibold">{info.title}</h1>
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
             {(info.channel ?? info.uploader) && <span className="text-text">{info.channel ?? info.uploader}</span>}
-            <span>{count} vídeos</span>
-            {totalDuration > 0 && <span>{duration(totalDuration)} no total</span>}
-            {info.view_count != null && <span>{compact(info.view_count)} visualizações</span>}
-            {info.modified_date && <span>atualizada em {ymd(info.modified_date)}</span>}
+            <span>{count}{t(' vídeos')}</span>
+            {totalDuration > 0 && <span>{duration(totalDuration)}{t(' no total')}</span>}
+            {info.view_count != null && <span>{compact(info.view_count)}{t(' visualizações')}</span>}
+            {info.modified_date && <span>{t('atualizada em ')}{ymd(info.modified_date)}</span>}
           </div>
           {info.description && <p className="selectable line-clamp-3 text-sm whitespace-pre-wrap text-muted">{info.description}</p>}
           <Button size="sm" icon={<ExternalLink className="h-3.5 w-3.5" />} onClick={() => window.api.openExternal(info.webpage_url)}>
-            Abrir no navegador
+            {t('Abrir no navegador')}
           </Button>
         </div>
       </div>
@@ -88,7 +89,7 @@ export default function PlaylistView({
             onChange={(v) => setSel(v ? new Set(entries.map((_, i) => i + 1)) : new Set())}
           />
           <span className="text-sm font-semibold">
-            {sel.size} de {count} selecionados
+            {sel.size}{t(' de ')}{count}{t(' selecionados')}
           </span>
           {opts.playlistItems && opts.playlistItems !== '0' && (
             <code className="text-xs text-muted">--playlist-items {opts.playlistItems}</code>
@@ -97,7 +98,7 @@ export default function PlaylistView({
         <div className="max-h-[60vh] overflow-y-auto">
           {entries.map((e, i) => {
             const idx = i + 1
-            const t = thumbOf(e)
+            const thumb = thumbOf(e)
             return (
               <div
                 key={e.id ?? idx}
@@ -107,13 +108,13 @@ export default function PlaylistView({
                 <Checkbox checked={sel.has(idx)} onChange={() => toggle(idx)} />
                 <span className="w-8 text-right text-xs text-muted">{idx}</span>
                 <div className="relative h-[54px] w-24 shrink-0 overflow-hidden rounded-md bg-panel-3">
-                  {t && <img src={t} alt="" loading="lazy" className="h-full w-full object-cover" />}
+                  {thumb && <img src={thumb} alt="" loading="lazy" className="h-full w-full object-cover" />}
                   {e.duration != null && <span className="absolute right-1 bottom-1 rounded bg-black/80 px-1 text-[10px]">{duration(e.duration)}</span>}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm">{e.title ?? e.url}</div>
                   <div className="truncate text-xs text-muted">
-                    {[e.channel ?? e.uploader, e.view_count != null ? `${compact(e.view_count)} visualizações` : null].filter(Boolean).join(' · ')}
+                    {[e.channel ?? e.uploader, e.view_count != null ? t('{n} visualizações', { n: compact(e.view_count) }) : null].filter(Boolean).join(' · ')}
                   </div>
                 </div>
                 {e.url && (
@@ -126,7 +127,7 @@ export default function PlaylistView({
                       onOpenEntry(e.url)
                     }}
                   >
-                    Detalhes
+                    {t('Detalhes')}
                   </Button>
                 )}
               </div>

@@ -10,6 +10,7 @@ import OptionsPanel from '../components/OptionsPanel'
 import AllOptionsDialog from '../components/AllOptionsDialog'
 import demoGif from '../assets/demo.gif'
 import { DEFAULT_OPTIONS, PER_VIDEO_KEYS, buildArgs, describe, type DownloadOptions } from '../lib/args'
+import { t } from '../../../shared/i18n'
 
 const STORE_KEY = 'download-options'
 
@@ -104,14 +105,14 @@ export default function DownloadPage({ ctx }: { ctx: AppContext }) {
   const exportFor = () => (opts.exportOn && opts.mode !== 'audio' ? opts.exportSettings : null)
 
   const queued = (n: number) =>
-    ctx.notify(n === 1 ? 'Adicionado à fila de downloads' : `${n} links adicionados à fila`, { label: 'Ver downloads', run: () => ctx.goTo('queue') })
+    ctx.notify(n === 1 ? t('Adicionado à fila de downloads') : t('{n} links adicionados à fila', { n }), { label: t('Ver downloads'), run: () => ctx.goTo('queue') })
 
   const enqueueAnalyzed = async () => {
     await window.api.addJob({
       url: info.webpage_url ?? info.original_url ?? current!.url,
       title: info.title ?? current!.url,
       thumbnail: thumbOf(info) ?? thumbOf(info.entries?.[0]),
-      label: describe(opts, { isPlaylist }) + (isPlaylist ? ` · ${opts.playlistItems ? 'itens ' + opts.playlistItems : 'playlist inteira'}` : ''),
+      label: describe(opts, { isPlaylist }) + (isPlaylist ? ` · ${opts.playlistItems ? t('itens {list}', { list: opts.playlistItems }) : t('playlist inteira')}` : ''),
       args,
       convert: convert(),
       exportSettings: exportFor()
@@ -130,16 +131,16 @@ export default function DownloadPage({ ctx }: { ctx: AppContext }) {
   const analyzedThis = info && urls.length === 1 && urls[0] === current?.url
   const action =
     urls.length > 1
-      ? { label: `Adicionar ${urls.length} links à fila`, disabled: false, run: () => void enqueueRaw(urls) }
+      ? { label: t('Adicionar {n} links à fila', { n: urls.length }), disabled: false, run: () => void enqueueRaw(urls) }
       : info && (analyzedThis || urls.length === 0 || stack.length > 0)
         ? {
-            label: isPlaylist ? 'Baixar playlist' : 'Baixar',
+            label: isPlaylist ? t('Baixar playlist') : t('Baixar'),
             disabled: isPlaylist && opts.playlistItems === '0',
             run: () => void enqueueAnalyzed()
           }
         : urls.length === 1
-          ? { label: 'Baixar sem analisar', disabled: false, run: () => void enqueueRaw(urls) }
-          : { label: 'Baixar', disabled: true, run: () => {} }
+          ? { label: t('Baixar sem analisar'), disabled: false, run: () => void enqueueRaw(urls) }
+          : { label: t('Baixar'), disabled: true, run: () => {} }
 
   const submit = () => {
     if (urls.length === 1) void analyze(urls[0], opts.noPlaylist)
@@ -158,7 +159,7 @@ export default function DownloadPage({ ctx }: { ctx: AppContext }) {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && submit()}
-                  placeholder="Cole o link de um vídeo, playlist ou canal"
+                  placeholder={t('Cole o link de um vídeo, playlist ou canal')}
                   className="h-12 w-full rounded-xl border border-line bg-panel pr-10 pl-11 text-[15px] outline-none placeholder:text-faint focus:border-info"
                 />
                 {input && (
@@ -177,28 +178,28 @@ export default function DownloadPage({ ctx }: { ctx: AppContext }) {
                   if (found.length === 1) void analyze(found[0], opts.noPlaylist)
                 }}
               >
-                Colar
+                {t('Colar')}
               </Button>
               {loading ? (
                 <Button size="lg" variant="danger" icon={<X className="h-4 w-4" />} onClick={() => window.api.cancelInfo().then(() => setLoading(false))}>
-                  Parar
+                  {t('Parar')}
                 </Button>
               ) : (
                 <Button size="lg" variant="primary" icon={<Search className="h-4 w-4" />} disabled={urls.length !== 1} onClick={submit}>
-                  Analisar
+                  {t('Analisar')}
                 </Button>
               )}
             </div>
             {urls.length === 1 && hasVideoAndList(urls[0]) && (
               <div className="flex items-center gap-3 text-sm text-muted">
-                <ListVideo className="h-4 w-4" /> Este link tem um vídeo e uma playlist.
+                <ListVideo className="h-4 w-4" />{t(' Este link tem um vídeo e uma playlist.')}
                 <div className="w-72">
                   <Segmented<'video' | 'list'>
                     value={opts.noPlaylist ? 'video' : 'list'}
                     onChange={(v) => setOpts((o) => ({ ...o, noPlaylist: v === 'video' }))}
                     options={[
-                      { value: 'video', label: 'Só o vídeo' },
-                      { value: 'list', label: 'A playlist inteira' }
+                      { value: 'video', label: t('Só o vídeo') },
+                      { value: 'list', label: t('A playlist inteira') }
                     ]}
                   />
                 </div>
@@ -206,28 +207,28 @@ export default function DownloadPage({ ctx }: { ctx: AppContext }) {
             )}
             {urls.length > 1 && (
               <div className="text-sm text-muted">
-                {urls.length} links encontrados. Eles vão para a fila com as opções do painel, sem análise individual.
+                {urls.length}{t(' links encontrados. Eles vão para a fila com as opções do painel, sem análise individual.')}
               </div>
             )}
           </div>
 
           {stack.length > 0 && (
             <Button variant="ghost" icon={<ArrowLeft className="h-4 w-4" />} onClick={back}>
-              Voltar para {stack[stack.length - 1].result.info?.title ?? 'a lista'}
+              {t('Voltar para ')}{stack[stack.length - 1].result.info?.title ?? t('a lista')}
             </Button>
           )}
 
           {loading && (
             <div className="flex items-center gap-3 rounded-xl border border-line bg-panel p-5 text-sm">
               <Spinner className="h-5 w-5 text-accent" />
-              Lendo informações com o yt-dlp… Pode levar alguns segundos (playlists grandes demoram mais).
+              {t('Lendo informações com o yt-dlp… Pode levar alguns segundos (playlists grandes demoram mais).')}
             </div>
           )}
 
           {!loading && current && !current.result.ok && (
             <div className="space-y-2 rounded-xl border border-err/30 bg-err/10 p-5">
               <div className="flex items-center gap-2 font-semibold text-err">
-                <TriangleAlert className="h-5 w-5" /> Não consegui ler este link
+                <TriangleAlert className="h-5 w-5" />{t(' Não consegui ler este link')}
               </div>
               <pre className="font-sans text-sm whitespace-pre-wrap text-err/90">{current.result.error}</pre>
             </div>
@@ -236,7 +237,7 @@ export default function DownloadPage({ ctx }: { ctx: AppContext }) {
           {!loading && current && current.result.warnings.length > 0 && (
             <details className="rounded-xl border border-warn/30 bg-warn/5 px-4 py-2.5 text-sm text-warn">
               <summary className="cursor-pointer">
-                {current.result.warnings.length} aviso{current.result.warnings.length > 1 ? 's' : ''} do yt-dlp
+                {current.result.warnings.length > 1 ? t('{n} avisos do yt-dlp', { n: current.result.warnings.length }) : t('1 aviso do yt-dlp')}
               </summary>
               <ul className="mt-2 list-disc space-y-1 pl-5 text-xs">
                 {current.result.warnings.map((w, i) => (
@@ -255,16 +256,16 @@ export default function DownloadPage({ ctx }: { ctx: AppContext }) {
 
           {!loading && !current && (
             <div className="flex flex-col items-center py-8 text-center">
-              <h2 className="text-lg font-semibold">Cole um link para começar</h2>
+              <h2 className="text-lg font-semibold">{t('Cole um link para começar')}</h2>
               <p className="mt-1 max-w-md text-sm text-muted">
-                O app mostra tudo o que o yt-dlp encontrar: formatos, qualidades, áudio, legendas, miniaturas, capítulos e comentários.
+                {t('O app mostra tudo o que o yt-dlp encontrar: formatos, qualidades, áudio, legendas, miniaturas, capítulos e comentários.')}
               </p>
-              <img src={demoGif} alt="Demonstração: colar o link, analisar, escolher o formato e baixar" className="mt-6 w-full max-w-[760px] rounded-xl border border-line shadow-2xl" />
+              <img src={demoGif} alt={t('Demonstração: colar o link, analisar, escolher o formato e baixar')} className="mt-6 w-full max-w-[760px] rounded-xl border border-line shadow-2xl" />
               <ol className="mt-5 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-muted">
                 {['Cole o link', 'Clique em Analisar', 'Escolha formato e qualidade', 'Baixe e acompanhe em Downloads'].map((step, i) => (
                   <li key={step} className="flex items-center gap-2">
                     <span className="grid h-6 w-6 place-items-center rounded-full bg-accent/15 text-xs font-semibold text-accent">{i + 1}</span>
-                    {step}
+                    {t(step)}
                   </li>
                 ))}
               </ol>

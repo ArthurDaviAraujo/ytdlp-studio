@@ -7,6 +7,7 @@ import { cancelInfo, checkYtdlpUpdate, getComments, getHelp, getInfo, updateYtdl
 import { frcAmfWorks, listH264Encoders, listRifeGpus } from './convert'
 import { frame, probe } from './media'
 import * as jobs from './jobs'
+import { setLang, t } from '../shared/i18n'
 
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -42,6 +43,7 @@ function registerIpc(): void {
   ipcMain.handle('settings:get', () => getSettings())
   ipcMain.handle('settings:set', (_e, patch: Partial<Settings>) => {
     const s = setSettings(patch)
+    setLang(s.language)
     getToolStatus(true)
     return s
   })
@@ -56,7 +58,7 @@ function registerIpc(): void {
     const r = await dialog.showOpenDialog(win, {
       defaultPath: current || undefined,
       properties: ['openFile'],
-      filters: [{ name, extensions }, { name: 'Todos os arquivos', extensions: ['*'] }]
+      filters: [{ name, extensions }, { name: t('Todos os arquivos'), extensions: ['*'] }]
     })
     return r.canceled ? null : r.filePaths[0]
   })
@@ -85,8 +87,8 @@ function registerIpc(): void {
       defaultPath: current || undefined,
       properties: ['openFile'],
       filters: [
-        { name: 'Vídeos', extensions: ['mp4', 'mkv', 'webm', 'mov', 'avi', 'm4v', 'ts', 'flv', 'wmv'] },
-        { name: 'Todos os arquivos', extensions: ['*'] }
+        { name: t('Vídeos'), extensions: ['mp4', 'mkv', 'webm', 'mov', 'avi', 'm4v', 'ts', 'flv', 'wmv'] },
+        { name: t('Todos os arquivos'), extensions: ['*'] }
       ]
     })
     return r.canceled ? null : r.filePaths[0]
@@ -108,6 +110,7 @@ function registerIpc(): void {
 }
 
 app.whenReady().then(() => {
+  setLang(getSettings().language)
   ensureBundledBinaries()
   jobs.loadHistory()
   registerIpc()

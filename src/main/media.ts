@@ -2,6 +2,7 @@ import { spawn } from 'child_process'
 import { statSync } from 'fs'
 import type { MediaInfo } from '../shared/types'
 import { getToolStatus } from './tools'
+import { t } from '../shared/i18n'
 
 function capture(bin: string, args: string[]): Promise<{ code: number | null; out: Buffer; err: string }> {
   return new Promise((resolve) => {
@@ -23,16 +24,16 @@ const rate = (r?: string) => {
 
 export async function probe(path: string): Promise<MediaInfo> {
   const ffprobe = getToolStatus().ffprobe.path
-  if (!ffprobe) throw new Error('ffprobe.exe não encontrado (veja Configurações)')
+  if (!ffprobe) throw new Error(t('ffprobe.exe não encontrado (veja Configurações)'))
   const r = await capture(ffprobe, ['-v', 'error', '-print_format', 'json', '-show_format', '-show_streams', path])
-  if (r.code !== 0) throw new Error(r.err.trim() || 'Não consegui ler o vídeo')
+  if (r.code !== 0) throw new Error(r.err.trim() || t('Não consegui ler o vídeo'))
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const j: any = JSON.parse(r.out.toString('utf8'))
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const v = j.streams?.find((s: any) => s.codec_type === 'video' && !s.disposition?.attached_pic)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const a = j.streams?.find((s: any) => s.codec_type === 'audio')
-  if (!v) throw new Error('O arquivo não tem vídeo')
+  if (!v) throw new Error(t('O arquivo não tem vídeo'))
   // Vídeos de celular guardam a rotação à parte; o ffmpeg gira sozinho ao decodificar
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rotation = Number(v.side_data_list?.find((s: any) => s.rotation != null)?.rotation ?? v.tags?.rotate ?? 0)

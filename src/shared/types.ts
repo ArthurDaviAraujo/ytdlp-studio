@@ -1,3 +1,5 @@
+import type { Lang } from './i18n'
+
 export type JsRuntimeChoice = 'auto' | 'none' | 'deno' | 'node'
 
 export interface Settings {
@@ -11,6 +13,7 @@ export interface Settings {
   concurrency: number
   exportPresets: SavedPreset[]
   checkUpdates: boolean
+  language: Lang
 }
 
 export type Framing = 'crop' | 'blur' | 'bars'

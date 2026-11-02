@@ -8,6 +8,7 @@ import { isV4Model } from '../shared/presets'
 import { getToolStatus } from './tools'
 import { encoderArgs, listH264Encoders } from './convert'
 import { probe } from './media'
+import { t } from '../shared/i18n'
 
 export interface ExportHooks {
   progress: (percent: number | null, stage?: string) => void
@@ -22,7 +23,7 @@ export interface ExportResult {
   error: string | null
 }
 
-const METHOD_LABEL = { duplicate: 'duplicando quadros', gpu: 'placa AMD', cpu: 'processador', ai: 'IA (RIFE)' }
+const METHOD_LABEL = { duplicate: 'duplicando quadros', gpu: 'placa AMD', cpu: 'processador', ai: 'IA (RIFE)' } as const
 
 const even = (n: number) => Math.max(2, Math.round(n / 2) * 2)
 
@@ -167,7 +168,7 @@ const fail = (error: string): ExportResult => ({ ok: false, output: null, error 
 
 export async function exportVideo(input: string, s: ExportSettings, hooks: ExportHooks): Promise<ExportResult> {
   const tools = getToolStatus()
-  if (!tools.ffmpeg.path) return fail('ffmpeg.exe não encontrado')
+  if (!tools.ffmpeg.path) return fail(t('ffmpeg.exe não encontrado'))
   let info: MediaInfo
   try {
     info = await probe(input)
@@ -178,7 +179,7 @@ export async function exportVideo(input: string, s: ExportSettings, hooks: Expor
   const start = Math.max(0, parseTime(s.start) ?? 0)
   const end = Math.min(info.duration || Infinity, parseTime(s.end) ?? Infinity)
   const dur = (isFinite(end) ? end : info.duration) - start
-  if (!(dur > 0)) return fail('O trecho escolhido está vazio (confira início e fim)')
+  if (!(dur > 0)) return fail(t('O trecho escolhido está vazio (confira início e fim)'))
 
   const speed = s.speed > 0 ? s.speed : 1
   const outDur = dur / speed
@@ -194,13 +195,13 @@ export async function exportVideo(input: string, s: ExportSettings, hooks: Expor
 
   hooks.log(
     `[app] ${info.width}x${info.height} ${srcFps.toFixed(3)} fps → ${geo.W}x${geo.H} ${target.toFixed(3)} fps` +
-      (generate ? ` (${METHOD_LABEL[s.method]})` : '') +
-      (speed !== 1 ? `, velocidade ${speed}x` : '') +
-      `, trecho ${start.toFixed(2)}–${(start + dur).toFixed(2)} s`
+      (generate ? ` (${t(METHOD_LABEL[s.method])})` : '') +
+      (speed !== 1 ? ', ' + t('velocidade {speed}x', { speed }) : '') +
+      ', ' + t('trecho {start}–{end} s', { start: start.toFixed(2), end: (start + dur).toFixed(2) })
   )
 
   if (generate && s.method === 'ai') {
-    if (!tools.rife.models.length) return fail('RIFE não encontrado. Coloque a pasta rife ao lado do yt-dlp.exe ou indique o caminho em Configurações.')
+    if (!tools.rife.models.length) return fail(t('RIFE não encontrado. Coloque a pasta rife ao lado do yt-dlp.exe ou indique o caminho em Configurações.'))
     return exportWithAi(input, info, s, { start, dur, speed, outDur, srcFps, target, geo, encoder, output, keepAudio }, hooks)
   }
 
@@ -231,15 +232,15 @@ export async function exportVideo(input: string, s: ExportSettings, hooks: Expor
   } else args.push('-an')
   args.push(...encoderArgs(encoder, s.quality, s.maxBitrate), '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-t', outDur.toFixed(3), '-progress', 'pipe:1', '-nostats', output)
 
-  hooks.progress(0, `Preparando: ${s.name}`)
+  hooks.progress(0, t('Preparando: {name}', { name: t(s.name) }))
   const r = await runFfmpeg(args, outDur, hooks, (p) => hooks.progress(p))
   if (hooks.canceled()) {
     if (existsSync(output)) rmSync(output, { force: true })
-    return fail('Cancelado')
+    return fail(t('Cancelado'))
   }
   if (r.code !== 0) {
     if (existsSync(output)) rmSync(output, { force: true })
-    return fail(r.tail.slice(-4).join('\n') || `ffmpeg terminou com código ${r.code}`)
+    return fail(r.tail.slice(-4).join('\n') || t('ffmpeg terminou com código {code}', { code: String(r.code) }))
   }
   return { ok: true, output, error: null }
 }
@@ -260,7 +261,7 @@ interface AiPlan {
 async function exportWithAi(input: string, info: MediaInfo, s: ExportSettings, p: AiPlan, hooks: ExportHooks): Promise<ExportResult> {
   const rife = getToolStatus().rife
   const model = rife.models.includes(s.aiModel) ? s.aiModel : rife.models[0]
-  if (!model) return fail('Nenhum modelo do RIFE encontrado')
+  if (!model) return fail(t('Nenhum modelo do RIFE encontrado'))
   // Cada modelo roda com o programa da instalação de onde veio (oficial ou comunidade)
   const { dir: modelDir, exe } = rife.info[model]
   const v4 = isV4Model(model)
@@ -283,13 +284,13 @@ async function exportWithAi(input: string, info: MediaInfo, s: ExportSettings, p
   const totalFrames = Math.max(1, Math.round(p.dur * S))
   const perChunk = Math.min(300, Math.max(24, Math.floor(4e8 / (p.geo.W * p.geo.H))))
   const chunks = Math.ceil(totalFrames / perChunk)
-  hooks.log(`[app] IA: modelo ${model}, ${totalFrames} quadros em ${chunks} pedaço(s), fator ${ratio.toFixed(3)}x`)
+  hooks.log('[app] ' + t('IA: modelo {model}, {frames} quadros em {chunks} pedaço(s), fator {ratio}x', { model, frames: totalFrames, chunks, ratio: ratio.toFixed(3) }))
 
   const parts: string[] = []
   try {
     for (let c = 0; c < chunks; c++) {
-      if (hooks.canceled()) return fail('Cancelado')
-      const stage = `IA (RIFE ${model}): pedaço ${c + 1} de ${chunks}`
+      if (hooks.canceled()) return fail(t('Cancelado'))
+      const stage = t('IA (RIFE {model}): pedaço {n} de {total}', { model, n: c + 1, total: chunks })
       const report = (frac: number) => hooks.progress(((c + frac) / chunks) * 100, stage)
       report(0)
       resetDirs()
@@ -305,8 +306,8 @@ async function exportWithAi(input: string, info: MediaInfo, s: ExportSettings, p
         0,
         hooks
       )
-      if (hooks.canceled()) return fail('Cancelado')
-      if (ex.code !== 0) return fail(ex.tail.slice(-4).join('\n') || 'Falha ao separar os quadros')
+      if (hooks.canceled()) return fail(t('Cancelado'))
+      if (ex.code !== 0) return fail(ex.tail.slice(-4).join('\n') || t('Falha ao separar os quadros'))
       const nIn = readdirSync(inDir).length
       if (!nIn) break
       if (nIn < want) last = true
@@ -325,8 +326,8 @@ async function exportWithAi(input: string, info: MediaInfo, s: ExportSettings, p
         if (s.aiTtaSpatial) args.push('-x')
         if (s.aiTtaTemporal) args.push('-z')
         const rr = await runRife(exe, args, outDir, nOut, hooks, (pct) => report(0.1 + (pct / 100) * 0.75))
-        if (hooks.canceled()) return fail('Cancelado')
-        if (rr.code !== 0 || readdirSync(outDir).length < keep) return fail(`O RIFE falhou: ${rr.tail.slice(-3).join(' ') || `código ${rr.code}`}`)
+        if (hooks.canceled()) return fail(t('Cancelado'))
+        if (rr.code !== 0 || readdirSync(outDir).length < keep) return fail(t('O RIFE falhou: {error}', { error: rr.tail.slice(-3).join(' ') || t('código {code}', { code: String(rr.code) }) }))
         frameDir = outDir
       } else {
         keep = 1
@@ -343,14 +344,14 @@ async function exportWithAi(input: string, info: MediaInfo, s: ExportSettings, p
         0,
         hooks
       )
-      if (hooks.canceled()) return fail('Cancelado')
-      if (en.code !== 0) return fail(en.tail.slice(-4).join('\n') || 'Falha ao gravar o pedaço')
+      if (hooks.canceled()) return fail(t('Cancelado'))
+      if (en.code !== 0) return fail(en.tail.slice(-4).join('\n') || t('Falha ao gravar o pedaço'))
       parts.push(part)
       report(1)
       if (last) break
     }
 
-    if (!parts.length) return fail('Nenhum quadro foi lido do vídeo')
+    if (!parts.length) return fail(t('Nenhum quadro foi lido do vídeo'))
     const list = join(tmp, 'parts.txt')
     writeFileSync(list, parts.map((f) => `file '${f.replace(/'/g, "'\\''")}'`).join('\n'))
     const args = ['-hide_banner', '-y', '-f', 'concat', '-safe', '0', '-i', list]
@@ -362,10 +363,10 @@ async function exportWithAi(input: string, info: MediaInfo, s: ExportSettings, p
       args.push('-c:a', 'aac', '-b:a', `${s.audioKbps}k`)
     }
     args.push('-movflags', '+faststart', '-t', p.outDur.toFixed(3), p.output)
-    hooks.progress(100, 'Juntando vídeo e áudio')
+    hooks.progress(100, t('Juntando vídeo e áudio'))
     const fin = await runFfmpeg(args, 0, hooks)
-    if (hooks.canceled()) return fail('Cancelado')
-    if (fin.code !== 0) return fail(fin.tail.slice(-4).join('\n') || 'Falha ao juntar o vídeo')
+    if (hooks.canceled()) return fail(t('Cancelado'))
+    if (fin.code !== 0) return fail(fin.tail.slice(-4).join('\n') || t('Falha ao juntar o vídeo'))
     return { ok: true, output: p.output, error: null }
   } finally {
     rmSync(tmp, { recursive: true, force: true })

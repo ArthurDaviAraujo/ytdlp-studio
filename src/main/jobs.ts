@@ -9,6 +9,7 @@ import { getSettings } from './settings'
 import { killTree } from './ytdlp'
 import { convertToH264, convertedPath, isVideoFile } from './convert'
 import { exportVideo, type ExportHooks } from './export'
+import { t } from '../shared/i18n'
 
 // Linhas que o yt-dlp imprime para o app; o resto vai para o log
 const PROGRESS_ARGS = [
@@ -152,7 +153,7 @@ export function listJobs(): Job[] {
 }
 
 export function getJobLog(id: string): string[] {
-  return runtime.get(id)?.log ?? ['(o log completo só fica disponível enquanto o app está aberto)']
+  return runtime.get(id)?.log ?? [t('(o log completo só fica disponível enquanto o app está aberto)')]
 }
 
 function log(job: Job, rt: Runtime, line: string): void {
@@ -178,7 +179,7 @@ export function addJob(req: JobRequest): Job {
     command: kind === 'download' ? ['yt-dlp', ...args, req.url] : [],
     convert: req.convert,
     status: 'queued',
-    stage: 'Na fila',
+    stage: t('Na fila'),
     percent: null,
     downloadedBytes: null,
     totalBytes: null,
@@ -225,19 +226,19 @@ function start(job: Job): void {
   const rt: Runtime = { child: null, canceled: false, log: [], durations: new Map(), out: '', err: '' }
   runtime.set(job.id, rt)
   job.status = 'running'
-  job.stage = 'Lendo informações do vídeo'
+  job.stage = t('Lendo informações do vídeo')
   job.error = null
   job.files = []
   job.warnings = 0
   job.item = null
   resetProgress(job)
   if (job.kind === 'export') {
-    job.stage = 'Lendo o vídeo'
+    job.stage = t('Lendo o vídeo')
     touch(job, true)
     void runExportJob(job, rt)
     return
   }
-  if (!bin) return finish(job, rt, -1, 'yt-dlp.exe não encontrado')
+  if (!bin) return finish(job, rt, -1, t('yt-dlp.exe não encontrado'))
 
   const args = [...baseArgs(), ...PROGRESS_ARGS, ...job.args, '--', job.url]
   log(job, rt, `> yt-dlp ${args.join(' ')}`)
@@ -281,7 +282,7 @@ function onStdout(job: Job, rt: Runtime, line: string): void {
       job.percent = total && p.downloaded_bytes != null ? Math.min(100, (p.downloaded_bytes / total) * 100) : null
       job.fragment = p.fragment_index != null && p.fragment_count ? `${p.fragment_index}/${p.fragment_count}` : null
       const fmt = typeof p.filename === 'string' ? p.filename.match(/\.f([\w-]+)\.\w+$/)?.[1] : null
-      job.stage = p.status === 'finished' ? 'Download concluído' : fmt ? `Baixando formato ${fmt}` : 'Baixando'
+      job.stage = p.status === 'finished' ? t('Download concluído') : fmt ? t('Baixando formato {fmt}', { fmt }) : t('Baixando')
     } catch {
       log(job, rt, line)
     }
@@ -289,7 +290,7 @@ function onStdout(job: Job, rt: Runtime, line: string): void {
   }
   if (line.startsWith('YTPP|')) {
     const [, , pp, status] = line.split('|')
-    if (status === 'started') job.stage = PP_NAMES[pp] ?? `Pós-processamento: ${pp}`
+    if (status === 'started') job.stage = PP_NAMES[pp] ? t(PP_NAMES[pp]) : t('Pós-processamento: {pp}', { pp })
     log(job, rt, `[${pp}] ${status}`)
     return
   }
@@ -301,19 +302,19 @@ function onStdout(job: Job, rt: Runtime, line: string): void {
     job.item = Number(count) > 0 ? { index: Number(idx), count: Number(count), title } : null
     if (!job.item && (!job.title || job.title === job.url)) job.title = title
     resetProgress(job)
-    job.stage = 'Começando o download'
+    job.stage = t('Começando o download')
     log(job, rt, `[app] Item: ${title}`)
     return
   }
   const sleeping = line.match(/^\[download\] Sleeping ([\d.]+) seconds/)
-  if (sleeping) job.stage = `Aguardando ${Math.round(Number(sleeping[1]))} s (exigência do site)`
+  if (sleeping) job.stage = t('Aguardando {s} s (exigência do site)', { s: Math.round(Number(sleeping[1])) })
   if (line.startsWith('YTF|')) {
     const sep = line.indexOf('|', 4)
     const id = line.slice(4, sep)
     const file = line.slice(sep + 1)
     job.files.push(file)
     rt.durations.set(file, rt.durations.get(id) ?? 0)
-    log(job, rt, `[app] Arquivo final: ${file}`)
+    log(job, rt, '[app] ' + t('Arquivo final: {file}', { file }))
     return
   }
   log(job, rt, line)
@@ -343,7 +344,7 @@ function exportHooks(job: Job, rt: Runtime): ExportHooks {
 }
 
 async function runExportJob(job: Job, rt: Runtime): Promise<void> {
-  if (!job.input || !job.exportSettings) return finish(job, rt, -1, 'Exportação sem arquivo ou sem opções')
+  if (!job.input || !job.exportSettings) return finish(job, rt, -1, t('Exportação sem arquivo ou sem opções'))
   const r = await exportVideo(job.input, job.exportSettings, exportHooks(job, rt))
   if (r.ok && r.output) job.files.push(r.output)
   finish(job, rt, r.ok ? 0 : -1, r.ok || rt.canceled ? null : r.error)
@@ -358,9 +359,9 @@ async function afterDownload(job: Job, rt: Runtime, code: number): Promise<void>
       if (rt.canceled) break
       const input = videos[i]
       resetProgress(job)
-      job.stage = `Convertendo para H.264 (${job.convert.encoder})${videos.length > 1 ? ` ${i + 1}/${videos.length}` : ''}`
+      job.stage = t('Convertendo para H.264 ({encoder})', { encoder: job.convert.encoder }) + (videos.length > 1 ? ` ${i + 1}/${videos.length}` : '')
       touch(job)
-      log(job, rt, `[app] Convertendo ${input}`)
+      log(job, rt, '[app] ' + t('Convertendo {file}', { file: input }))
       const r = await convertToH264(
         input,
         job.convert.encoder,
@@ -375,7 +376,7 @@ async function afterDownload(job: Job, rt: Runtime, code: number): Promise<void>
       rt.child = null
       if (rt.canceled) break
       if (!r.ok) {
-        job.error = `Falha na conversão: ${r.error}`
+        job.error = t('Falha na conversão: {error}', { error: r.error ?? '' })
         continue
       }
       job.files.push(r.output)
@@ -384,7 +385,7 @@ async function afterDownload(job: Job, rt: Runtime, code: number): Promise<void>
           unlinkSync(input)
           job.files = job.files.filter((f) => f !== input)
         } catch (e) {
-          log(job, rt, `[app] Não consegui apagar o original: ${(e as Error).message}`)
+          log(job, rt, '[app] ' + t('Não consegui apagar o original: {error}', { error: (e as Error).message }))
         }
       }
     }
@@ -399,7 +400,7 @@ async function afterDownload(job: Job, rt: Runtime, code: number): Promise<void>
       const r = await exportVideo(input, job.exportSettings, exportHooks(job, rt))
       if (rt.canceled) break
       if (r.ok && r.output) job.files.push(r.output)
-      else job.error = `Falha ao preparar para ${job.exportSettings.name}: ${r.error}`
+      else job.error = t('Falha ao preparar para {name}: {error}', { name: t(job.exportSettings.name), error: r.error ?? '' })
     }
   }
   finish(job, rt, code, null)
@@ -414,19 +415,19 @@ function finish(job: Job, rt: Runtime, code: number, error: string | null): void
   job.finishedAt = Date.now()
   if (rt.canceled) {
     job.status = 'canceled'
-    job.stage = 'Cancelado'
+    job.stage = t('Cancelado')
   } else if (code === 0 && !job.error) {
     job.status = 'done'
     job.percent = 100
-    job.stage = job.files.length ? 'Concluído' : 'Concluído (nenhum arquivo novo)'
+    job.stage = job.files.length ? t('Concluído') : t('Concluído (nenhum arquivo novo)')
   } else if (job.files.length) {
     job.status = 'done'
     job.percent = 100
-    job.stage = 'Concluído com erros'
+    job.stage = t('Concluído com erros')
   } else {
     job.status = 'error'
-    job.stage = 'Erro'
-    job.error = job.error ?? `O yt-dlp terminou com código ${code}`
+    job.stage = t('Erro')
+    job.error = job.error ?? t('O yt-dlp terminou com código {code}', { code })
   }
   touch(job, true)
   pump()
@@ -438,7 +439,7 @@ export function cancelJob(id: string): void {
   if (!job) return
   if (job.status === 'queued') {
     job.status = 'canceled'
-    job.stage = 'Cancelado'
+    job.stage = t('Cancelado')
     job.finishedAt = Date.now()
     touch(job, true)
     return

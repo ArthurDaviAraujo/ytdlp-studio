@@ -1,5 +1,6 @@
 import type { ExportSettings } from '../../../shared/types'
 import { BUILTIN_PRESETS } from '../../../shared/presets'
+import { t } from '../../../shared/i18n'
 
 export type Mode = 'video' | 'audio' | 'manual'
 
@@ -200,19 +201,19 @@ export function buildArgs(o: DownloadOptions, ctx: BuildContext): string[] {
 export function describe(o: DownloadOptions, ctx: BuildContext): string {
   const parts: string[] = []
   if (o.mode === 'audio') {
-    parts.push(`Áudio ${o.audioFormat.toUpperCase()}`)
+    parts.push(t('Áudio {format}', { format: o.audioFormat.toUpperCase() }))
   } else if (o.mode === 'manual' && !ctx.isPlaylist && (o.manualVideo || o.manualAudio.length)) {
-    parts.push(`Formatos ${[o.manualVideo, ...o.manualAudio].filter(Boolean).join('+')}`)
+    parts.push(t('Formatos {ids}', { ids: [o.manualVideo, ...o.manualAudio].filter(Boolean).join('+') }))
   } else {
-    parts.push(o.maxHeight ? `Vídeo até ${o.maxHeight}p` : 'Vídeo na melhor qualidade')
+    parts.push(o.maxHeight ? t('Vídeo até {h}p', { h: o.maxHeight }) : t('Vídeo na melhor qualidade'))
     if (o.vcodec) parts.push(o.vcodec.toUpperCase())
   }
   if (o.mode !== 'audio' && o.container) parts.push(o.container.toUpperCase())
   const subs = new Set([...o.subsManual, ...o.subsAuto]).size
-  if (subs) parts.push(`${subs} legenda${subs > 1 ? 's' : ''}`)
-  if (o.sections.length) parts.push(`${o.sections.length} trecho${o.sections.length > 1 ? 's' : ''}`)
+  if (subs) parts.push(subs > 1 ? t('{n} legendas', { n: subs }) : t('1 legenda'))
+  if (o.sections.length) parts.push(o.sections.length > 1 ? t('{n} trechos', { n: o.sections.length }) : t('1 trecho'))
   if (o.convertH264 && o.mode !== 'audio') parts.push('→ H.264')
-  if (o.exportOn && o.mode !== 'audio') parts.push(`→ ${o.exportSettings.name}`)
+  if (o.exportOn && o.mode !== 'audio') parts.push(`→ ${t(o.exportSettings.name)}`)
   return parts.join(' · ')
 }
 

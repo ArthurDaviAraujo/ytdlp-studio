@@ -36,6 +36,7 @@ Sai em `release\yt-dlp GUI Setup <versão>.exe`. O instalador leva junto o `yt-d
 - **Comentários**: carregados sob demanda, com respostas agrupadas.
 - **Playlists e canais**: lista dos vídeos com seleção (`--playlist-items`) e detalhes de cada vídeo.
 - **Todas as opções do yt-dlp**: lidas do `yt-dlp --help` da versão instalada (250 na 2026.10.21), com busca, valores e opções repetíveis, mais as predefinições `-t` e um campo de argumentos livres.
+- **Idioma**: inglês (padrão) ou português, em Configurações. A troca vale na hora. Os textos ficam em `src/shared/i18n.ts` e `src/shared/i18n-en.ts`: a chave é o texto em português.
 - **Fila de downloads**: progresso, velocidade, tempo restante, item da playlist, log, cancelar, tentar de novo, abrir o arquivo ou a pasta. Também tem histórico e uma prévia do comando.
 - **Converter para H.264** depois de baixar, usando a GPU (AMD/NVIDIA/Intel) ou a CPU. Só aparecem os codificadores que funcionam na máquina.
 - **FPS máximo** na hora de baixar (`-S fps:N`).

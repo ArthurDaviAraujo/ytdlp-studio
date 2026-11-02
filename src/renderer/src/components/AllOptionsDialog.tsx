@@ -3,6 +3,7 @@ import { Lock, Plus, Search, Trash2, X } from 'lucide-react'
 import type { HelpData, HelpOption } from '../../../shared/types'
 import { Badge, Button, Checkbox, Spinner, TextInput, cx } from './ui'
 import type { AdvancedState, AdvancedValue } from '../lib/args'
+import { getLang, t } from '../../../shared/i18n'
 
 const SECTION_PT: Record<string, string> = {
   'General Options': 'Gerais',
@@ -23,6 +24,9 @@ const SECTION_PT: Record<string, string> = {
   'Extractor Options': 'Extratores',
   'Preset Aliases': 'Predefinições (-t)'
 }
+
+// Em inglês fica o nome original da seção, que vem do próprio yt-dlp
+const sectionName = (title: string) => (getLang() === 'pt' ? (SECTION_PT[title] ?? title) : title)
 
 const emptyTuple = (o: HelpOption) => o.metavars.map(() => '')
 
@@ -58,8 +62,8 @@ function OptionRow({ o, value, onChange }: { o: HelpOption; value: AdvancedValue
                 {m}
               </code>
             ))}
-            {o.repeatable && <Badge>pode repetir</Badge>}
-            {o.managed && <Badge tone="warn">{o.managed}</Badge>}
+            {o.repeatable && <Badge>{t('pode repetir')}</Badge>}
+            {o.managed && <Badge tone="warn">{t(o.managed)}</Badge>}
           </div>
           <p className="selectable mt-1 text-[13px] leading-5 text-muted">{o.description}</p>
           {on && o.metavars.length > 0 && (
@@ -78,7 +82,7 @@ function OptionRow({ o, value, onChange }: { o: HelpOption; value: AdvancedValue
               ))}
               {o.repeatable && (
                 <Button size="sm" variant="ghost" icon={<Plus className="h-3.5 w-3.5" />} onClick={() => onChange({ on: true, values: [...values, emptyTuple(o)] })}>
-                  Adicionar outro
+                  {t('Adicionar outro')}
                 </Button>
               )}
             </div>
@@ -147,14 +151,14 @@ export default function AllOptionsDialog({
       <div className="flex h-full max-h-[900px] w-full max-w-[1180px] flex-col overflow-hidden rounded-2xl border border-line bg-panel shadow-2xl" onMouseDown={(e) => e.stopPropagation()}>
         <header className="flex items-center gap-4 border-b border-line px-6 py-4">
           <div className="flex-1">
-            <h2 className="text-lg font-semibold">Todas as opções do yt-dlp</h2>
+            <h2 className="text-lg font-semibold">{t('Todas as opções do yt-dlp')}</h2>
             <p className="text-xs text-muted">
-              {help ? `${total} opções lidas do próprio yt-dlp ${help.version}` : 'Lendo a ajuda do yt-dlp…'}. Descrições no original, em inglês. Têm prioridade sobre o painel.
+              {help ? t('{n} opções lidas do próprio yt-dlp {version}', { n: total, version: help.version }) : t('Lendo a ajuda do yt-dlp…')}{t('. Descrições no original, em inglês. Têm prioridade sobre o painel.')}
             </p>
           </div>
           <div className="relative w-80">
             <Search className="absolute top-2.5 left-2.5 h-4 w-4 text-faint" />
-            <TextInput autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar (ex.: cookies, proxy, limit-rate)" className="pl-8" />
+            <TextInput autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('Buscar (ex.: cookies, proxy, limit-rate)')} className="pl-8" />
           </div>
           <button onClick={onClose} className="rounded-lg p-2 text-muted hover:bg-panel-3 hover:text-text">
             <X className="h-5 w-5" />
@@ -182,7 +186,7 @@ export default function AllOptionsDialog({
                       !query && section === s.title ? 'bg-panel-3 text-text' : 'text-muted hover:bg-panel-2 hover:text-text'
                     )}
                   >
-                    <span className="flex-1">{SECTION_PT[s.title] ?? s.title}</span>
+                    <span className="flex-1">{sectionName(s.title)}</span>
                     {n > 0 && <span className="rounded-full bg-accent px-1.5 text-[11px] text-white">{n}</span>}
                     <span className="text-xs text-faint">{s.title === 'Preset Aliases' ? help.presets.length : s.options.length}</span>
                   </button>
@@ -190,11 +194,12 @@ export default function AllOptionsDialog({
               })}
             </nav>
             <div className="min-w-0 flex-1 overflow-y-auto p-4">
-              {shown.length === 0 && <div className="p-10 text-center text-muted">Nada encontrado para “{q}”.</div>}
+              {shown.length === 0 && <div className="p-10 text-center text-muted">{t('Nada encontrado para “')}{q}”.</div>}
               {shown.map((s) => (
                 <div key={s.title} className="mb-6">
                   <h3 className="mb-1 px-1 text-sm font-semibold">
-                    {SECTION_PT[s.title] ?? s.title} <span className="font-normal text-faint">· {s.title}</span>
+                    {sectionName(s.title)}
+                    {getLang() === 'pt' && <span className="font-normal text-faint">· {s.title}</span>}
                   </h3>
                   {s.note && <p className="mb-3 px-1 text-xs text-muted">{s.note}</p>}
                   {s.title === 'Preset Aliases' && !query ? (
@@ -227,7 +232,7 @@ export default function AllOptionsDialog({
         )}
 
         <footer className="flex items-center gap-3 border-t border-line px-6 py-3">
-          <span className="flex-1 text-sm text-muted">{activeTotal} {activeTotal === 1 ? 'opção ativa' : 'opções ativas'}</span>
+          <span className="flex-1 text-sm text-muted">{activeTotal} {activeTotal === 1 ? t('opção ativa') : t('opções ativas')}</span>
           <Button
             variant="ghost"
             disabled={!activeTotal}
@@ -236,10 +241,10 @@ export default function AllOptionsDialog({
               onPresets([])
             }}
           >
-            Limpar tudo
+            {t('Limpar tudo')}
           </Button>
           <Button variant="primary" onClick={onClose}>
-            Concluir
+            {t('Concluir')}
           </Button>
         </footer>
       </div>

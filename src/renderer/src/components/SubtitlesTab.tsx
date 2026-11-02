@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import { Search } from 'lucide-react'
 import { Badge, Button, Checkbox, TextInput, cx } from './ui'
 import type { DownloadOptions } from '../lib/args'
+import { t } from '../../../shared/i18n'
 
 interface Lang {
   code: string
@@ -47,19 +48,19 @@ function LangList({
           </div>
           {selected.length > 0 && (
             <Button size="sm" variant="ghost" onClick={() => onChange([])}>
-              Limpar ({selected.length})
+              {t('Limpar (')}{selected.length})
             </Button>
           )}
         </div>
         {langs.length > 8 && (
           <div className="relative">
             <Search className="absolute top-2.5 left-2.5 h-4 w-4 text-faint" />
-            <TextInput value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar idioma" className="pl-8" />
+            <TextInput value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('Buscar idioma')} className="pl-8" />
           </div>
         )}
       </div>
       <div className="max-h-[52vh] overflow-y-auto p-1.5">
-        {!langs.length && <div className="p-4 text-sm text-muted">Nenhuma.</div>}
+        {!langs.length && <div className="p-4 text-sm text-muted">{t('Nenhuma.')}</div>}
         {shown.map((l) => (
           <label
             key={l.code}
@@ -98,19 +99,19 @@ export default function SubtitlesTab({
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted">
-        Marque os idiomas que quer baixar. Formato, embutir no vídeo ou salvar como arquivo separado ficam no painel de opções.
+        {t('Marque os idiomas que quer baixar. Formato, embutir no vídeo ou salvar como arquivo separado ficam no painel de opções.')}
       </p>
       <div className="grid grid-cols-2 gap-4">
         <LangList
-          title="Legendas enviadas"
-          hint="Feitas pelo canal (--write-subs)"
+          title={t('Legendas enviadas')}
+          hint={t('Feitas pelo canal (--write-subs)')}
           langs={manual}
           selected={opts.subsManual}
           onChange={(subsManual) => setOpts((o) => ({ ...o, subsManual }))}
         />
         <LangList
-          title="Legendas automáticas"
-          hint="Geradas ou traduzidas pela plataforma (--write-auto-subs)"
+          title={t('Legendas automáticas')}
+          hint={t('Geradas ou traduzidas pela plataforma (--write-auto-subs)')}
           langs={auto}
           selected={opts.subsAuto}
           onChange={(subsAuto) => setOpts((o) => ({ ...o, subsAuto }))}
