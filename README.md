@@ -40,14 +40,17 @@ Sai em `release\yt-dlp GUI Setup <versão>.exe`. O instalador leva junto o `yt-d
 - **Fila de downloads**: progresso, velocidade, tempo restante, item da playlist, log, cancelar, tentar de novo, abrir o arquivo ou a pasta. Também tem histórico e uma prévia do comando.
 - **Converter para H.264** depois de baixar, usando a GPU (AMD/NVIDIA/Intel) ou a CPU. Só aparecem os codificadores que funcionam na máquina.
 - **FPS máximo** na hora de baixar (`-S fps:N`).
+- **Qualidade máxima**: um botão no painel de download e outro no Preparar vídeo, que deixam tudo no máximo com um clique e desligam voltando ao que estava antes. No download, o app pega o maior tamanho e FPS do site, o melhor áudio e não converte nada. No Preparar, usa imagem em 15, `libx264`, sem limite de taxa e áudio AAC 320 kbps. Um aviso lembra que o arquivo e o tempo podem crescer muito.
 - **Preparar para postar**: um grupo no fim do painel de download e a página **Preparar vídeo**, que trabalha com qualquer vídeo do PC. Também aparece um botão "Preparar" em cada download concluído.
   - **Destinos prontos:** TikTok, Reels, Shorts, Instagram feed 4:5, Quadrado, YouTube e Personalizado. Você pode salvar predefinições suas.
-  - **Tudo editável:** tamanho e proporção; enquadramento (cortar com posição, fundo desfocado com força, barras com cor); FPS; velocidade (0,25x a 4x, com o áudio acompanhando); trecho (início e fim); qualidade, codificador e limite de taxa de bits; áudio; e o final do nome do arquivo.
+  - **Tudo editável:** tamanho e proporção; enquadramento (cortar com posição, fundo desfocado com força, barras com cor); FPS; velocidade (0,1x a 16x, com o áudio acompanhando); trecho (início e fim); qualidade, codificador e limite de taxa de bits; áudio; e o final do nome do arquivo.
   - **Quadros novos**, quando o FPS final passa do original ou em câmera lenta:
     - Duplicar;
     - Placa AMD (`frc_amf`): dobra o FPS e o app compensa o atraso de 2 quadros do filtro;
     - Processador (`minterpolate`);
     - IA (RIFE): 47 modelos, modo UHD e TTA espacial e temporal. Os modelos v4 aceitam qualquer FPS; os outros só dobram.
+  - **Estimar o tempo:** antes de exportar, o app faz a exportação de verdade em dois trechos curtos (1 s e 3 s). Assim ele separa o custo fixo do custo por segundo e calcula quanto o vídeo inteiro vai levar no seu PC. Também compara os métodos de quadros novos já medidos, para ver se vale a pena. A medição pode ser cancelada.
+  - **Preparar depois de baixar**, no painel de download, faz tudo num pedido só: baixa e, em seguida, gera o arquivo preparado.
   - O arquivo novo sai ao lado do original (`nome.tiktok.mp4`), sem apagar nada.
 - **Editor** (aba própria; também pelo botão "Editar" de cada download):
   - **Linha do tempo** com miniaturas, onda do áudio, régua e zoom. "Cortar aqui" (S) divide o vídeo, "Apagar trecho" (Delete) tira a parte, e as divisas se arrastam para ajustar. A prévia já pula os trechos apagados.
