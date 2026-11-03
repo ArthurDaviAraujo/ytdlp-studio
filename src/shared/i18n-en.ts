@@ -466,7 +466,7 @@ export const en: Record<string, string> = {
   'Cole um link para começar': 'Paste a link to start',
   'O app mostra tudo o que o yt-dlp encontrar: formatos, qualidades, áudio, legendas, miniaturas, capítulos e comentários.':
     'The app shows everything yt-dlp finds: formats, qualities, audio, subtitles, thumbnails, chapters and comments.',
-  'Demonstração: colar o link, analisar, escolher o formato e baixar': 'Demo: paste the link, analyze, choose the format and download',
+  'Demonstração: baixar com Qualidade máxima, cortar e pôr música no Editor e preparar para o TikTok com estimativa de tempo': 'Demo: download at Maximum quality, cut and add music in the Editor, and prepare for TikTok with a time estimate',
   'Cole o link': 'Paste the link',
   'Clique em Analisar': 'Click Analyze',
   'Escolha formato e qualidade': 'Choose format and quality',

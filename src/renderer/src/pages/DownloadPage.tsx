@@ -260,7 +260,7 @@ export default function DownloadPage({ ctx }: { ctx: AppContext }) {
               <p className="mt-1 max-w-md text-sm text-muted">
                 {t('O app mostra tudo o que o yt-dlp encontrar: formatos, qualidades, áudio, legendas, miniaturas, capítulos e comentários.')}
               </p>
-              <img src={demoGif} alt={t('Demonstração: colar o link, analisar, escolher o formato e baixar')} className="mt-6 w-full max-w-[760px] rounded-xl border border-line shadow-2xl" />
+              <img src={demoGif} alt={t('Demonstração: baixar com Qualidade máxima, cortar e pôr música no Editor e preparar para o TikTok com estimativa de tempo')} className="mt-6 w-full max-w-[760px] rounded-xl border border-line shadow-2xl" />
               <ol className="mt-5 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-muted">
                 {['Cole o link', 'Clique em Analisar', 'Escolha formato e qualidade', 'Baixe e acompanhe em Downloads'].map((step, i) => (
                   <li key={step} className="flex items-center gap-2">
