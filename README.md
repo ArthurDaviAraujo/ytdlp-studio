@@ -49,6 +49,13 @@ Sai em `release\yt-dlp GUI Setup <versão>.exe`. O instalador leva junto o `yt-d
     - Processador (`minterpolate`);
     - IA (RIFE): 47 modelos, modo UHD e TTA espacial e temporal. Os modelos v4 aceitam qualquer FPS; os outros só dobram.
   - O arquivo novo sai ao lado do original (`nome.tiktok.mp4`), sem apagar nada.
+- **Editor** (aba própria; também pelo botão "Editar" de cada download):
+  - **Linha do tempo** com miniaturas, onda do áudio, régua e zoom. "Cortar aqui" (S) divide o vídeo, "Apagar trecho" (Delete) tira a parte, e as divisas se arrastam para ajustar. A prévia já pula os trechos apagados.
+  - **Músicas de fundo**: quantas quiser, cada uma numa trilha. Arrastando o clipe, você escolhe onde ela começa no vídeo. Arrastando as pontas, corta o começo ou o fim. "Na agulha" põe a música onde está a agulha. Também há volume, repetir e suavizar.
+  - **Mixer** numa janela própria, que fica por cima do app e vai para qualquer lugar da tela: ganho, agudo, médio, grave e volume de cada som (vídeo e cada música), com medidores. A prévia usa o Web Audio (`BiquadFilterNode`) e o arquivo final usa os filtros `bass`/`equalizer`/`treble` do ffmpeg, com as mesmas fórmulas.
+  - **Velocidade** livre (0,1x a 16x); as músicas continuam na velocidade normal.
+  - **Ctrl+Z / Ctrl+Y** desfazem e refazem tudo: cortes, músicas, volumes, equalizador e velocidade.
+  - **Preparar para postar** leva os cortes e as músicas para a página Preparar vídeo sem exportar antes; o arquivo final sai numa exportação só. "Exportar só o vídeo editado" gera `nome.edited.mp4`.
 
 ## Requisitos externos
 

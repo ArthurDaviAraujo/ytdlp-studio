@@ -168,7 +168,55 @@ export interface ConvertOptions {
   keepOriginal: boolean
 }
 
-export type JobKind = 'download' | 'export'
+export type JobKind = 'download' | 'export' | 'cut'
+
+/** Trecho do vídeo original, em segundos */
+export interface Segment {
+  start: number
+  end: number
+}
+
+/** Equalizador de um canal do mixer, em dB (−12 a +12) */
+export interface EqSettings {
+  /** Ganho antes do volume */
+  gain: number
+  bass: number
+  mid: number
+  treble: number
+}
+
+/** Uma música de fundo no editor: um clipe numa trilha própria, que pode começar em qualquer ponto do vídeo */
+export interface MusicClip {
+  id: string
+  path: string
+  /** Duração do arquivo de música (s), se conhecida */
+  fileDuration: number | null
+  /** Em que ponto do vídeo final ela começa (s) */
+  at: number
+  /** De que segundo da música ela começa */
+  start: number
+  /** Quanto dela tocar (s); null = até a música acabar (ou até o fim do vídeo, se repetir) */
+  length: number | null
+  /** 0–2 (1 = volume original do arquivo) */
+  volume: number
+  /** Repete a música se ela acabar antes */
+  loop: boolean
+  /** Sobe o volume no começo e abaixa no fim */
+  fade: boolean
+  eq?: EqSettings
+}
+
+/** O que foi feito no editor: trechos que ficam (na ordem), som do vídeo e as músicas. Vazio = vídeo inteiro. */
+export interface EditPlan {
+  segments: Segment[]
+  musics: MusicClip[]
+  /** Volume do som do próprio vídeo, 0–2 (1 = sem mudança, 0 = mudo) */
+  videoVolume?: number
+  /** Equalizador do som do vídeo */
+  videoEq?: EqSettings
+  /** Velocidade do vídeo (1 = normal). As músicas de fundo não mudam de velocidade; `at` delas é no tempo já acelerado */
+  speed?: number
+}
 
 export interface JobRequest {
   kind?: JobKind
@@ -182,6 +230,8 @@ export interface JobRequest {
   exportSettings?: ExportSettings | null
   /** Exportação de um arquivo que já está no PC */
   input?: string | null
+  /** Cortes e música do editor (kind 'cut', ou 'export' vindo do editor) */
+  edit?: EditPlan | null
 }
 
 export type JobStatus = 'queued' | 'running' | 'converting' | 'done' | 'error' | 'canceled'
@@ -191,6 +241,7 @@ export interface Job {
   kind: JobKind
   input: string | null
   exportSettings: ExportSettings | null
+  edit?: EditPlan | null
   url: string
   title: string
   thumbnail: string | null

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Clapperboard, FileVideo, FolderOpen, RefreshCw, Wand2 } from 'lucide-react'
-import type { ExportSettings, Job, MediaInfo } from '../../../shared/types'
+import { Clapperboard, FileVideo, FolderOpen, Gauge, Music, RefreshCw, Scissors, Wand2, X } from 'lucide-react'
+import type { EditPlan, ExportSettings, Job, MediaInfo } from '../../../shared/types'
 import { BUILTIN_PRESETS } from '../../../shared/presets'
 import type { AppContext } from '../App'
 import { Button, Card, Empty, Spinner } from '../components/ui'
@@ -23,7 +23,17 @@ function loadSettings(): ExportSettings {
   return { ...BUILTIN_PRESETS[0].settings }
 }
 
-export default function ExportPage({ ctx, jobs, source, setSource }: { ctx: AppContext; jobs: Job[]; source: string | null; setSource: (p: string | null) => void }) {
+interface Props {
+  ctx: AppContext
+  jobs: Job[]
+  source: string | null
+  setSource: (p: string | null) => void
+  /** Cortes e música vindos do editor */
+  edit: EditPlan | null
+  clearEdit: () => void
+}
+
+export default function ExportPage({ ctx, jobs, source, setSource, edit, clearEdit }: Props) {
   const [settings, setSettings] = useState<ExportSettings>(loadSettings)
   const [info, setInfo] = useState<MediaInfo | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -70,6 +80,11 @@ export default function ExportPage({ ctx, jobs, source, setSource }: { ctx: AppC
     return files.slice(0, 12)
   }, [jobs])
 
+  // Duração depois dos cortes do editor (o trecho e o limite de duração valem sobre ela)
+  // Velocidade do editor: a duração que chega aqui já é a acelerada
+  const editSpeed = edit?.speed && edit.speed > 0 ? edit.speed : 1
+  const editDur = edit?.segments.length ? edit.segments.reduce((acc, s) => acc + (s.end - s.start), 0) / editSpeed : edit && info && editSpeed !== 1 ? info.duration / editSpeed : null
+
   const pick = async () => {
     const p = await window.api.pickVideo(source ?? ctx.settings.downloadDir)
     if (p) setSource(p)
@@ -84,11 +99,12 @@ export default function ExportPage({ ctx, jobs, source, setSource }: { ctx: AppC
       url: '',
       title: baseName(source),
       thumbnail: null,
-      label: `${t(settings.name)} · ${W}×${H}${settings.fps ? ` · ${settings.fps} fps` : ''}${settings.speed !== 1 ? ` · ${settings.speed}x` : ''}`,
+      label: `${t(settings.name)}${edit ? ' · ' + t('editado no Editor') : ''} · ${W}×${H}${settings.fps ? ` · ${settings.fps} fps` : ''}${settings.speed !== 1 ? ` · ${settings.speed}x` : ''}`,
       args: [],
       convert: null,
       exportSettings: settings,
-      input: source
+      input: source,
+      edit
     })
     ctx.notify(t('Adicionado à fila'), { label: t('Ver downloads'), run: () => ctx.goTo('queue') })
   }
@@ -98,7 +114,7 @@ export default function ExportPage({ ctx, jobs, source, setSource }: { ctx: AppC
   return (
     <div className="flex h-full">
       <div className="min-w-0 flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-[1000px] space-y-5 p-6">
+        <div className="space-y-5 p-6">
           <div className="flex items-center gap-3">
             <div className="flex-1">
               <h1 className="text-xl font-semibold">{t('Preparar vídeo')}</h1>
@@ -150,6 +166,34 @@ export default function ExportPage({ ctx, jobs, source, setSource }: { ctx: AppC
               {error && <div className="text-sm text-err">{error}</div>}
               {info && (
                 <div className="space-y-4">
+                  {edit && (
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-accent/30 bg-accent/8 px-3 py-2 text-sm">
+                      <span className="font-medium text-accent">{t('Com a edição do Editor')}</span>
+                      {edit.segments.length > 0 && (
+                        <span className="inline-flex items-center gap-1.5 text-muted">
+                          <Scissors className="h-3.5 w-3.5" />
+                          {t('{n} trecho(s) · {dur}', { n: edit.segments.length, dur: duration(editDur ?? 0) })}
+                        </span>
+                      )}
+                      {editSpeed !== 1 && (
+                        <span className="inline-flex items-center gap-1.5 text-muted">
+                          <Gauge className="h-3.5 w-3.5" />
+                          {t('velocidade {speed}x', { speed: editSpeed })} · {duration(editDur ?? 0)}
+                        </span>
+                      )}
+                      {(edit.videoVolume ?? 1) !== 1 && <span className="text-muted">{t('Som do vídeo: {n}%', { n: Math.round((edit.videoVolume ?? 1) * 100) })}</span>}
+                      {edit.musics.length > 0 && (
+                        <span className="inline-flex min-w-0 items-center gap-1.5 text-muted" title={edit.musics.map((m) => baseName(m.path)).join('\n')}>
+                          <Music className="h-3.5 w-3.5 shrink-0" />
+                          <span className="truncate">{edit.musics.length === 1 ? baseName(edit.musics[0].path) : t('{n} músicas', { n: edit.musics.length })}</span>
+                        </span>
+                      )}
+                      <span className="ml-auto text-xs text-faint">{t('A prévia mostra o vídeo original; o arquivo final sai com os cortes e a música.')}</span>
+                      <button className="rounded p-1 text-muted hover:bg-panel-3 hover:text-text" title={t('Tirar a edição')} onClick={clearEdit}>
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
                   <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted">
                     <span className="text-text">
                       {info.width}×{info.height}
@@ -189,7 +233,7 @@ export default function ExportPage({ ctx, jobs, source, setSource }: { ctx: AppC
             onChange={setSettings}
             caps={ctx.caps}
             rifeModels={ctx.tools.rife.models}
-            source={info ? { width: info.width, height: info.height, fps: info.fps, duration: info.duration } : null}
+            source={info ? { width: info.width, height: info.height, fps: info.fps, duration: editDur ?? info.duration } : null}
             saved={ctx.settings.exportPresets}
             onSavePreset={ctx.savePreset}
             onDeletePreset={ctx.deletePreset}

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
-import { CircleArrowUp, Download, ListVideo, Settings as SettingsIcon, TriangleAlert, Wand2 } from 'lucide-react'
-import type { Capabilities, ExportSettings, Job, Settings, ToolStatus, UpdateCheck } from '../../shared/types'
+import { CircleArrowUp, Download, ListVideo, Scissors, Settings as SettingsIcon, TriangleAlert, Wand2 } from 'lucide-react'
+import type { Capabilities, EditPlan, ExportSettings, Job, Settings, ToolStatus, UpdateCheck } from '../../shared/types'
 import DownloadPage from './pages/DownloadPage'
+import EditorPage from './pages/EditorPage'
 import ExportPage from './pages/ExportPage'
 import QueuePage from './pages/QueuePage'
 import SettingsPage from './pages/SettingsPage'
@@ -9,7 +10,7 @@ import { cx } from './components/ui'
 import appIcon from './assets/icon.svg'
 import { setLang, t } from '../../shared/i18n'
 
-type Page = 'download' | 'export' | 'queue' | 'settings'
+type Page = 'download' | 'editor' | 'export' | 'queue' | 'settings'
 
 export interface AppContext {
   settings: Settings
@@ -19,7 +20,9 @@ export interface AppContext {
   refreshTools: () => Promise<void>
   notify: (msg: string, action?: { label: string; run: () => void }) => void
   goTo: (p: Page) => void
-  openExport: (path: string) => void
+  /** Abre Preparar vídeo; com `edit`, os cortes e a música do editor vão junto */
+  openExport: (path: string, edit?: EditPlan | null) => void
+  openEditor: (path: string) => void
   savePreset: (s: ExportSettings) => void
   deletePreset: (id: string) => void
 }
@@ -57,6 +60,8 @@ export default function App() {
   const [toast, setToast] = useState<{ msg: string; action?: { label: string; run: () => void } } | null>(null)
   const [caps, setCaps] = useState<Capabilities | null>(null)
   const [exportSource, setExportSource] = useState<string | null>(null)
+  const [editorSource, setEditorSource] = useState<string | null>(null)
+  const [exportEdit, setExportEdit] = useState<EditPlan | null>(null)
   const [update, setUpdate] = useState<UpdateCheck | null>(null)
   const [updating, setUpdating] = useState(false)
   const { jobs, drop } = useJobs(page)
@@ -101,9 +106,14 @@ export default function App() {
     },
     notify: (msg, action) => setToast({ msg, action }),
     goTo: setPage,
-    openExport: (path) => {
+    openExport: (path, edit) => {
       setExportSource(path)
+      setExportEdit(edit ?? null)
       setPage('export')
+    },
+    openEditor: (path) => {
+      setEditorSource(path)
+      setPage('editor')
     },
     savePreset: (s) => {
       // Mesmo nome substitui a predefinição antiga
@@ -119,6 +129,7 @@ export default function App() {
 
   const nav: { id: Page; label: string; icon: ReactNode; badge?: number }[] = [
     { id: 'download', label: t('Baixar'), icon: <Download className="h-[18px] w-[18px]" /> },
+    { id: 'editor', label: t('Editor'), icon: <Scissors className="h-[18px] w-[18px]" /> },
     { id: 'export', label: t('Preparar vídeo'), icon: <Wand2 className="h-[18px] w-[18px]" /> },
     { id: 'queue', label: t('Downloads'), icon: <ListVideo className="h-[18px] w-[18px]" />, badge: active || undefined },
     { id: 'settings', label: t('Configurações'), icon: <SettingsIcon className="h-[18px] w-[18px]" /> }
@@ -197,7 +208,24 @@ export default function App() {
         <div className={cx('h-full', page !== 'download' && 'hidden')}>
           <DownloadPage ctx={ctx} />
         </div>
-        {page === 'export' && <ExportPage ctx={ctx} jobs={jobs} source={exportSource} setSource={setExportSource} />}
+        {/* O editor fica montado para não perder os cortes ao trocar de aba */}
+        <div className={cx('h-full', page !== 'editor' && 'hidden')}>
+          <EditorPage ctx={ctx} jobs={jobs} active={page === 'editor'} source={editorSource} setSource={setEditorSource} />
+        </div>
+        {page === 'export' && (
+          <ExportPage
+            ctx={ctx}
+            jobs={jobs}
+            source={exportSource}
+            edit={exportEdit}
+            clearEdit={() => setExportEdit(null)}
+            setSource={(p) => {
+              // Outro vídeo: a edição era do anterior
+              setExportSource(p)
+              setExportEdit(null)
+            }}
+          />
+        )}
         {page === 'queue' && <QueuePage ctx={ctx} jobs={jobs} onRemoved={drop} />}
         {page === 'settings' && <SettingsPage ctx={ctx} />}
 

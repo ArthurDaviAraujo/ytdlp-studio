@@ -5,7 +5,7 @@ import { duration as fmt, parseTime } from '../lib/format'
 import { t } from '../../../shared/i18n'
 
 /** Caminho do Windows → endereço file:// que o <video> do Electron consegue abrir */
-const fileUrl = (p: string) => encodeURI('file:///' + p.replace(/\\/g, '/')).replace(/#/g, '%23').replace(/\?/g, '%3F')
+export const fileUrl = (p: string) => encodeURI('file:///' + p.replace(/\\/g, '/')).replace(/#/g, '%23').replace(/\?/g, '%3F')
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v))
 
 /**
@@ -38,6 +38,13 @@ export default function FramingPreview({
   const [muted, setMuted] = useState(false)
   const [now, setNow] = useState(0)
   const [failed, setFailed] = useState(false)
+  // A prévia cresce com a janela: em tela cheia fica bem maior
+  const [winH, setWinH] = useState(window.innerHeight)
+  useEffect(() => {
+    const onResize = () => setWinH(window.innerHeight)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
 
   const start = parseTime(s.start) ?? 0
   const end = parseTime(s.end) ?? total ?? null
@@ -71,7 +78,7 @@ export default function FramingPreview({
   const fh = crop || same ? Math.min(1, (wider ? 1 : srcAR / dstAR) / zoom) : 1
   const px = (s.position ?? 50) / 100
   const py = (s.positionY ?? 50) / 100
-  const boxH = 300
+  const boxH = Math.round(Math.min(720, Math.max(300, winH * 0.56)))
   const boxW = Math.round(boxH * dstAR)
   const canPlay = !!video && !failed
   const showWindow = !same && crop

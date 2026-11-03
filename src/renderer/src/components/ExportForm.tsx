@@ -304,15 +304,29 @@ export default function ExportForm({
       </Sub>
 
       <Sub title={t('Velocidade e trecho')}>
-        <Field label={t('Velocidade')}>
-          <Select value={value.speed} onChange={(e) => set('speed', Number(e.target.value))}>
-            {SPEEDS.map((s) => (
-              <option key={s} value={s}>
-                {s === 1 ? t('Normal (1x)') : s < 1 ? t('Câmera lenta {s}x', { s }) : t('Acelerado {s}x', { s })}
-              </option>
-            ))}
-          </Select>
-        </Field>
+        <div className="grid grid-cols-2 gap-2">
+          <Field label={t('Velocidade')}>
+            <Select value={SPEEDS.includes(value.speed) ? value.speed : -1} onChange={(e) => Number(e.target.value) > 0 && set('speed', Number(e.target.value))}>
+              {SPEEDS.map((s) => (
+                <option key={s} value={s}>
+                  {s === 1 ? t('Normal (1x)') : s < 1 ? t('Câmera lenta {s}x', { s }) : t('Acelerado {s}x', { s })}
+                </option>
+              ))}
+              {!SPEEDS.includes(value.speed) && <option value={-1}>{value.speed < 1 ? t('Câmera lenta {s}x', { s: value.speed }) : t('Acelerado {s}x', { s: value.speed })}</option>}
+            </Select>
+          </Field>
+          <Field label={t('Outro valor')}>
+            <TextInput
+              type="number"
+              min={0.1}
+              max={16}
+              step={0.05}
+              value={value.speed}
+              placeholder={t('ex.: 1.37')}
+              onChange={(e) => Number(e.target.value) > 0 && set('speed', Math.min(16, Math.max(0.1, Math.round(Number(e.target.value) * 100) / 100)))}
+            />
+          </Field>
+        </div>
         <div className="grid grid-cols-2 gap-2">
           <Field label={t('Início')}>
             <TextInput value={value.start} placeholder="0:00" onChange={(e) => set('start', e.target.value)} />

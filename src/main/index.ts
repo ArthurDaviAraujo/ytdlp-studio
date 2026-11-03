@@ -5,9 +5,56 @@ import { getSettings, setSettings } from './settings'
 import { ensureBundledBinaries, getToolStatus } from './tools'
 import { cancelInfo, checkYtdlpUpdate, getComments, getHelp, getInfo, updateYtdlp } from './ytdlp'
 import { frcAmfWorks, listH264Encoders, listRifeGpus } from './convert'
-import { frame, probe } from './media'
+import { audioDuration, frame, peaks, probe, thumbs } from './media'
 import * as jobs from './jobs'
 import { setLang, t } from '../shared/i18n'
+
+let mainWin: BrowserWindow | null = null
+let mixerWin: BrowserWindow | null = null
+
+const loadRenderer = (w: BrowserWindow, hash = '') => {
+  if (process.env.ELECTRON_RENDERER_URL) void w.loadURL(process.env.ELECTRON_RENDERER_URL + (hash ? `#${hash}` : ''))
+  else void w.loadFile(join(__dirname, '../renderer/index.html'), hash ? { hash } : undefined)
+}
+
+/** Mixer numa janela própria: vai para qualquer lugar da tela, sempre por cima da janela principal (filha dela). */
+function openMixer(size: { width: number; height: number }): void {
+  if (!mainWin) return
+  if (mixerWin && !mixerWin.isDestroyed()) {
+    mixerWin.setContentSize(size.width, size.height)
+    mixerWin.focus()
+    return
+  }
+  const b = mainWin.getBounds()
+  mixerWin = new BrowserWindow({
+    parent: mainWin,
+    width: size.width,
+    height: size.height,
+    useContentSize: true,
+    x: b.x + b.width - size.width - 60,
+    y: b.y + 140,
+    frame: false,
+    resizable: true,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    backgroundColor: '#0b0d12',
+    title: 'Mixer',
+    show: false,
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      sandbox: false,
+      contextIsolation: true
+    }
+  })
+  mixerWin.on('ready-to-show', () => mixerWin?.show())
+  mixerWin.on('closed', () => {
+    mixerWin = null
+    if (mainWin && !mainWin.isDestroyed()) mainWin.webContents.send('mixer:msg', { type: 'closed' })
+  })
+  loadRenderer(mixerWin, 'mixer')
+}
 
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -34,12 +81,20 @@ function createWindow(): BrowserWindow {
     return { action: 'deny' }
   })
   jobs.attach(win.webContents)
-  if (process.env.ELECTRON_RENDERER_URL) void win.loadURL(process.env.ELECTRON_RENDERER_URL)
-  else void win.loadFile(join(__dirname, '../renderer/index.html'))
+  loadRenderer(win)
+  mainWin = win
   return win
 }
 
 function registerIpc(): void {
+  // Mixer: o editor manda o estado e os níveis; o mixer devolve o que a pessoa mexe
+  ipcMain.handle('mixer:open', (_e, size: { width: number; height: number }) => openMixer(size))
+  ipcMain.handle('mixer:close', () => mixerWin?.close())
+  ipcMain.on('mixer:post', (e, msg: unknown) => {
+    const fromMixer = mixerWin && !mixerWin.isDestroyed() && e.sender === mixerWin.webContents
+    const to = fromMixer ? mainWin : mixerWin
+    if (to && !to.isDestroyed()) to.webContents.send('mixer:msg', msg)
+  })
   ipcMain.handle('settings:get', () => getSettings())
   ipcMain.handle('settings:set', (_e, patch: Partial<Settings>) => {
     const s = setSettings(patch)
@@ -81,6 +136,9 @@ function registerIpc(): void {
     }
   })
   ipcMain.handle('media:frame', (_e, path: string, time: number) => frame(path, time))
+  ipcMain.handle('media:thumbs', (_e, path: string, times: number[], width: number) => thumbs(path, times, width))
+  ipcMain.handle('media:peaks', (_e, path: string, buckets: number) => peaks(path, buckets))
+  ipcMain.handle('media:audio', (_e, path: string) => audioDuration(path))
   ipcMain.handle('dialog:video', async (e, current: string) => {
     const win = BrowserWindow.fromWebContents(e.sender)!
     const r = await dialog.showOpenDialog(win, {

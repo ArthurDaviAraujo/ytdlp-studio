@@ -8,7 +8,7 @@ import { baseArgs, getToolStatus } from './tools'
 import { getSettings } from './settings'
 import { killTree } from './ytdlp'
 import { convertToH264, convertedPath, isVideoFile } from './convert'
-import { exportVideo, type ExportHooks } from './export'
+import { cutVideo, exportVideo, type ExportHooks } from './export'
 import { t } from '../shared/i18n'
 
 // Linhas que o yt-dlp imprime para o app; o resto vai para o log
@@ -171,6 +171,7 @@ export function addJob(req: JobRequest): Job {
     kind,
     input: req.input ?? null,
     exportSettings: req.exportSettings ?? null,
+    edit: req.edit ?? null,
     url: req.url,
     title: req.title || req.url,
     thumbnail: req.thumbnail,
@@ -232,10 +233,10 @@ function start(job: Job): void {
   job.warnings = 0
   job.item = null
   resetProgress(job)
-  if (job.kind === 'export') {
+  if (job.kind === 'export' || job.kind === 'cut') {
     job.stage = t('Lendo o vídeo')
     touch(job, true)
-    void runExportJob(job, rt)
+    void (job.kind === 'cut' ? runCutJob(job, rt) : runExportJob(job, rt))
     return
   }
   if (!bin) return finish(job, rt, -1, t('yt-dlp.exe não encontrado'))
@@ -345,7 +346,14 @@ function exportHooks(job: Job, rt: Runtime): ExportHooks {
 
 async function runExportJob(job: Job, rt: Runtime): Promise<void> {
   if (!job.input || !job.exportSettings) return finish(job, rt, -1, t('Exportação sem arquivo ou sem opções'))
-  const r = await exportVideo(job.input, job.exportSettings, exportHooks(job, rt))
+  const r = await exportVideo(job.input, job.exportSettings, exportHooks(job, rt), job.edit)
+  if (r.ok && r.output) job.files.push(r.output)
+  finish(job, rt, r.ok ? 0 : -1, r.ok || rt.canceled ? null : r.error)
+}
+
+async function runCutJob(job: Job, rt: Runtime): Promise<void> {
+  if (!job.input || !job.edit) return finish(job, rt, -1, t('Nenhum trecho para exportar'))
+  const r = await cutVideo(job.input, job.edit, exportHooks(job, rt))
   if (r.ok && r.output) job.files.push(r.output)
   finish(job, rt, r.ok ? 0 : -1, r.ok || rt.canceled ? null : r.error)
 }

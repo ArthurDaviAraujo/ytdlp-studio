@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { CircleCheck, CircleX, Copy, FileText, FolderOpen, ListVideo, Play, RotateCcw, ScrollText, Trash2, TriangleAlert, Wand2, X } from 'lucide-react'
+import { CircleCheck, CircleX, Copy, FileText, FolderOpen, ListVideo, Play, RotateCcw, Scissors, ScrollText, Trash2, TriangleAlert, Wand2, X } from 'lucide-react'
 import type { Job } from '../../../shared/types'
 import type { AppContext } from '../App'
 import { Badge, Button, Empty, ProgressBar, cx } from '../components/ui'
@@ -48,7 +48,7 @@ function LogView({ job }: { job: Job }) {
   )
 }
 
-function JobCard({ job, onRemoved, onPrepare }: { job: Job; onRemoved: (ids: string[]) => void; onPrepare: (file: string) => void }) {
+function JobCard({ job, onRemoved, onPrepare, onEdit }: { job: Job; onRemoved: (ids: string[]) => void; onPrepare: (file: string) => void; onEdit: (file: string) => void }) {
   const [showLog, setShowLog] = useState(false)
   const st = STATUS[job.status]
   const active = job.status === 'running' || job.status === 'converting'
@@ -114,6 +114,11 @@ function JobCard({ job, onRemoved, onPrepare }: { job: Job; onRemoved: (ids: str
                   <button className="flex items-center gap-1 text-muted hover:text-text" onClick={() => window.api.showInFolder(f)}>
                     <FolderOpen className="h-3.5 w-3.5" />{t(' Pasta')}
                   </button>
+                  {job.status === 'done' && isVideo(f) && (
+                    <button className="flex items-center gap-1 text-muted hover:text-text" onClick={() => onEdit(f)}>
+                      <Scissors className="h-3.5 w-3.5" />{t(' Editar')}
+                    </button>
+                  )}
                   {job.status === 'done' && isVideo(f) && (
                     <button className="flex items-center gap-1 text-muted hover:text-text" onClick={() => onPrepare(f)}>
                       <Wand2 className="h-3.5 w-3.5" />{t(' Preparar')}
@@ -184,7 +189,7 @@ export default function QueuePage({ ctx, jobs, onRemoved }: { ctx: AppContext; j
             {t('Analise um link na aba Baixar e clique em Baixar.')}
           </Empty>
         ) : (
-          sorted.map((j) => <JobCard key={j.id} job={j} onRemoved={onRemoved} onPrepare={ctx.openExport} />)
+          sorted.map((j) => <JobCard key={j.id} job={j} onRemoved={onRemoved} onPrepare={ctx.openExport} onEdit={ctx.openEditor} />)
         )}
       </div>
     </div>

@@ -3,12 +3,13 @@ import { spawn, type ChildProcess } from 'child_process'
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'fs'
 import { dirname, extname, join } from 'path'
 import { randomUUID } from 'crypto'
-import type { ExportSettings, MediaInfo } from '../shared/types'
+import type { EditPlan, ExportSettings, MediaInfo, MusicClip } from '../shared/types'
 import { isV4Model } from '../shared/presets'
 import { getToolStatus } from './tools'
 import { encoderArgs, listH264Encoders } from './convert'
-import { probe } from './media'
+import { audioDuration, probe } from './media'
 import { t } from '../shared/i18n'
+import { clipSpan, dbToGain, eqFilters, eqIsFlat } from '../shared/audio'
 
 export interface ExportHooks {
   progress: (percent: number | null, stage?: string) => void
@@ -166,7 +167,18 @@ function runRife(exe: string, args: string[], outDir: string, expected: number, 
 
 const fail = (error: string): ExportResult => ({ ok: false, output: null, error })
 
-export async function exportVideo(input: string, s: ExportSettings, hooks: ExportHooks): Promise<ExportResult> {
+export async function exportVideo(input: string, s: ExportSettings, hooks: ExportHooks, edit?: EditPlan | null, nameFrom?: string): Promise<ExportResult> {
+  if (hasEdit(edit)) {
+    // Cortes e música primeiro, em alta qualidade num arquivo temporário; o arquivo final sai com o nome do original
+    const tmp = join(app.getPath('temp'), `ytdlp-gui-${randomUUID()}.mp4`)
+    try {
+      const first = await renderEdit(input, edit, scaleHooks(hooks, 0, 40), tmp, 14)
+      if (!first.ok) return first
+      return await exportVideo(tmp, s, scaleHooks(hooks, 40, 100), null, input)
+    } finally {
+      rmSync(tmp, { force: true })
+    }
+  }
   const tools = getToolStatus()
   if (!tools.ffmpeg.path) return fail(t('ffmpeg.exe não encontrado'))
   let info: MediaInfo
@@ -190,7 +202,7 @@ export async function exportVideo(input: string, s: ExportSettings, hooks: Expor
   const geo = geometry(info, s)
   const encoders = await listH264Encoders()
   const encoder = s.encoder && encoders.includes(s.encoder) ? s.encoder : (encoders[0] ?? 'libx264')
-  const output = outputPath(input, s.suffix)
+  const output = outputPath(nameFrom ?? input, s.suffix)
   const keepAudio = s.audio && info.hasAudio
 
   hooks.log(
@@ -244,6 +256,111 @@ export async function exportVideo(input: string, s: ExportSettings, hooks: Expor
   }
   return { ok: true, output, error: null }
 }
+
+const hasEdit = (e?: EditPlan | null): e is EditPlan => !!e && (e.segments.length > 0 || (e.musics?.length ?? 0) > 0 || (e.videoVolume ?? 1) !== 1 || !eqIsFlat(e.videoEq) || (e.speed ?? 1) !== 1)
+
+/** Repassa o progresso de uma etapa para uma faixa da barra (ex.: 0–40%) */
+function scaleHooks(hooks: ExportHooks, from: number, to: number, stage?: string): ExportHooks {
+  return {
+    ...hooks,
+    progress: (p, s) => hooks.progress(p == null ? null : from + (p * (to - from)) / 100, stage ?? s)
+  }
+}
+
+/**
+ * Aplica o que foi feito no editor: junta os trechos que ficam e mistura a música de fundo.
+ * Cada trecho entra como uma entrada própria com -ss antes do -i: o ffmpeg pula direto para lá
+ * em vez de decodificar o vídeo inteiro, o que importa em vídeos longos. O corte cai no quadro exato.
+ */
+export async function renderEdit(input: string, edit: EditPlan, hooks: ExportHooks, output: string, quality = 18): Promise<ExportResult> {
+  if (!getToolStatus().ffmpeg.path) return fail(t('ffmpeg.exe não encontrado'))
+  let info: MediaInfo
+  try {
+    info = await probe(input)
+  } catch (e) {
+    return fail((e as Error).message)
+  }
+  const wanted = edit.segments.length ? edit.segments : [{ start: 0, end: info.duration }]
+  const parts = wanted
+    .map((s) => ({ start: Math.max(0, s.start), end: Math.min(info.duration || Infinity, s.end) }))
+    .filter((s) => s.end - s.start > 0.05)
+  if (!parts.length) return fail(t('Nenhum trecho para exportar'))
+
+  // Duração do vídeo final: os trechos que ficam, já na velocidade escolhida
+  const speed = edit.speed && edit.speed > 0 ? edit.speed : 1
+  const total = parts.reduce((acc, s) => acc + (s.end - s.start), 0) / speed
+  const encoders = await listH264Encoders()
+  const encoder = encoders[0] ?? 'libx264'
+  const audio = info.hasAudio
+  // Músicas que caem dentro do vídeo final, com a duração do arquivo conhecida (para o fim suave)
+  const clips: { c: MusicClip; span: number }[] = []
+  for (const c of edit.musics ?? []) {
+    if (!existsSync(c.path) || c.at >= total - 0.05) continue
+    const full = { ...c, fileDuration: c.fileDuration ?? (await audioDuration(c.path)) }
+    const span = clipSpan(full, total)
+    if (span > 0.05) clips.push({ c: full, span })
+  }
+
+  const args = ['-hide_banner', '-y']
+  for (const s of parts) args.push('-ss', s.start.toFixed(3), '-t', (s.end - s.start).toFixed(3), '-i', input)
+  const m = parts.length
+  for (const { c } of clips) {
+    if (c.loop) args.push('-stream_loop', '-1')
+    if (c.start > 0) args.push('-ss', c.start.toFixed(3))
+    args.push('-i', c.path)
+  }
+
+  // O concat exige o mesmo formato em todas as entradas; como todas vêm do mesmo arquivo, já é o caso
+  const streams = parts.map((_, i) => `[${i}:v:0]` + (audio ? `[${i}:a:0]` : '')).join('')
+  const graph = [`${streams}concat=n=${m}:v=1:a=${audio ? 1 : 0}[vc]${audio ? '[ac]' : ''}`]
+  // Velocidade: a imagem com setpts (e fps para manter a taxa constante), o som com atempo (sem mudar o tom)
+  graph.push(speed !== 1 ? `[vc]setpts=PTS/${speed},fps=${(info.fps || 30).toFixed(3)}[v]` : '[vc]null[v]')
+  if (audio) graph.push(speed !== 1 ? `[ac]${atempo(speed)}[orig]` : '[ac]anull[orig]')
+  // Som do vídeo: volume × ganho, depois o equalizador
+  const vv = Math.max(0, edit.videoVolume ?? 1)
+  const vFx = [`volume=${(vv * dbToGain(edit.videoEq?.gain ?? 0)).toFixed(4)}`, ...eqFilters(edit.videoEq)].join(',')
+  const mix: string[] = []
+  let aOut: string | null = null
+  if (audio) {
+    if (clips.length || vv !== 1 || !eqIsFlat(edit.videoEq)) {
+      graph.push(`[orig]aformat=sample_rates=48000:channel_layouts=stereo,${vFx}[o2]`)
+      mix.push('[o2]')
+      aOut = '[o2]'
+    } else aOut = '[orig]'
+  }
+  clips.forEach(({ c, span }, k) => {
+    const fade = c.fade ? `,afade=t=in:d=${Math.min(1.5, span / 4).toFixed(2)},afade=t=out:st=${Math.max(0, span - Math.min(2, span / 3)).toFixed(2)}:d=${Math.min(2, span / 3).toFixed(2)}` : ''
+    const fx = [`volume=${(c.volume * dbToGain(c.eq?.gain ?? 0)).toFixed(4)}`, ...eqFilters(c.eq)].join(',')
+    // adelay empurra a música para o ponto do vídeo onde ela começa
+    const delay = Math.round(c.at * 1000)
+    graph.push(`[${m + k}:a:0]aformat=sample_rates=48000:channel_layouts=stereo,atrim=0:${span.toFixed(3)},asetpts=PTS-STARTPTS,${fx}${fade}${delay > 0 ? `,adelay=delays=${delay}:all=1` : ''}[m${k}]`)
+    mix.push(`[m${k}]`)
+  })
+  if (clips.length) {
+    // normalize=0: cada som fica no volume escolhido; apad + atrim deixam o áudio com a duração exata do vídeo
+    graph.push(`${mix.join('')}amix=inputs=${mix.length}:duration=longest:dropout_transition=0:normalize=0,apad,atrim=0:${total.toFixed(3)}[aout]`)
+    aOut = '[aout]'
+  }
+  args.push('-filter_complex', graph.join(';'), '-map', '[v]')
+  if (aOut) args.push('-map', aOut, '-c:a', 'aac', '-b:a', '192k')
+  args.push(...encoderArgs(encoder, quality), '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-t', total.toFixed(3), '-progress', 'pipe:1', '-nostats', output)
+
+  hooks.log('[app] ' + t('Cortes: {n} trecho(s), {sec} s no total', { n: parts.length, sec: total.toFixed(2) }) + (speed !== 1 ? ` · ${t('velocidade {speed}x', { speed })}` : '') + clips.map(({ c }) => ` · ${t('música')}: ${c.path} @ ${c.at.toFixed(2)} s`).join(''))
+  hooks.progress(0, clips.length ? t('Juntando os cortes e a música') : t('Juntando os cortes'))
+  const r = await runFfmpeg(args, total, hooks, (p) => hooks.progress(p))
+  if (hooks.canceled()) {
+    if (existsSync(output)) rmSync(output, { force: true })
+    return fail(t('Cancelado'))
+  }
+  if (r.code !== 0) {
+    if (existsSync(output)) rmSync(output, { force: true })
+    return fail(r.tail.slice(-4).join('\n') || t('ffmpeg terminou com código {code}', { code: String(r.code) }))
+  }
+  return { ok: true, output, error: null }
+}
+
+/** Só o editor: gera o vídeo cortado (e com a música) ao lado do original. */
+export const cutVideo = (input: string, edit: EditPlan, hooks: ExportHooks) => renderEdit(input, edit, hooks, outputPath(input, t('editado')))
 
 interface AiPlan {
   start: number

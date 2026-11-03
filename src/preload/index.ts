@@ -33,6 +33,9 @@ const api = {
   probeMedia: (path: string): Promise<{ ok: boolean; info: MediaInfo | null; error: string | null }> =>
     ipcRenderer.invoke('media:probe', path),
   mediaFrame: (path: string, time: number): Promise<string | null> => ipcRenderer.invoke('media:frame', path, time),
+  mediaThumbs: (path: string, times: number[], width: number): Promise<(string | null)[]> => ipcRenderer.invoke('media:thumbs', path, times, width),
+  mediaPeaks: (path: string, buckets: number): Promise<number[]> => ipcRenderer.invoke('media:peaks', path, buckets),
+  audioDuration: (path: string): Promise<number | null> => ipcRenderer.invoke('media:audio', path),
   pickVideo: (current: string): Promise<string | null> => ipcRenderer.invoke('dialog:video', current),
   listJobs: (): Promise<Job[]> => ipcRenderer.invoke('jobs:list'),
   addJob: (req: JobRequest): Promise<Job> => ipcRenderer.invoke('jobs:add', req),
@@ -41,6 +44,17 @@ const api = {
   removeJob: (id: string): Promise<string[]> => ipcRenderer.invoke('jobs:remove', id),
   clearFinished: (): Promise<string[]> => ipcRenderer.invoke('jobs:clear'),
   getJobLog: (id: string): Promise<string[]> => ipcRenderer.invoke('jobs:log', id),
+  mixerOpen: (size: { width: number; height: number }): Promise<void> => ipcRenderer.invoke('mixer:open', size),
+  mixerClose: (): Promise<void> => ipcRenderer.invoke('mixer:close'),
+  /** Do editor vai para o mixer; do mixer vai para o editor */
+  mixerPost: (msg: unknown) => ipcRenderer.send('mixer:post', msg),
+  onMixerMessage: (cb: (msg: unknown) => void) => {
+    const h = (_e: IpcRendererEvent, msg: unknown) => cb(msg)
+    ipcRenderer.on('mixer:msg', h)
+    return () => {
+      ipcRenderer.removeListener('mixer:msg', h)
+    }
+  },
   onJobsUpdate: (cb: (jobs: Job[]) => void) => {
     const h = (_e: IpcRendererEvent, jobs: Job[]) => cb(jobs)
     ipcRenderer.on('jobs:update', h)
