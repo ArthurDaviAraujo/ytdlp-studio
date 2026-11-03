@@ -3,7 +3,7 @@ import { spawn, type ChildProcess } from 'child_process'
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'fs'
 import { dirname, extname, join } from 'path'
 import { randomUUID } from 'crypto'
-import type { EditPlan, ExportSettings, MediaInfo, MusicClip } from '../shared/types'
+import type { EditPlan, ExportEstimate, ExportSettings, MediaInfo, MusicClip } from '../shared/types'
 import { isV4Model } from '../shared/presets'
 import { getToolStatus } from './tools'
 import { encoderArgs, listH264Encoders } from './convert'
@@ -167,7 +167,7 @@ function runRife(exe: string, args: string[], outDir: string, expected: number, 
 
 const fail = (error: string): ExportResult => ({ ok: false, output: null, error })
 
-export async function exportVideo(input: string, s: ExportSettings, hooks: ExportHooks, edit?: EditPlan | null, nameFrom?: string): Promise<ExportResult> {
+export async function exportVideo(input: string, s: ExportSettings, hooks: ExportHooks, edit?: EditPlan | null, nameFrom?: string, outputTo?: string): Promise<ExportResult> {
   if (hasEdit(edit)) {
     // Cortes e música primeiro, em alta qualidade num arquivo temporário; o arquivo final sai com o nome do original
     const tmp = join(app.getPath('temp'), `ytdlp-gui-${randomUUID()}.mp4`)
@@ -202,7 +202,7 @@ export async function exportVideo(input: string, s: ExportSettings, hooks: Expor
   const geo = geometry(info, s)
   const encoders = await listH264Encoders()
   const encoder = s.encoder && encoders.includes(s.encoder) ? s.encoder : (encoders[0] ?? 'libx264')
-  const output = outputPath(nameFrom ?? input, s.suffix)
+  const output = outputTo ?? outputPath(nameFrom ?? input, s.suffix)
   const keepAudio = s.audio && info.hasAudio
 
   hooks.log(
@@ -361,6 +361,67 @@ export async function renderEdit(input: string, edit: EditPlan, hooks: ExportHoo
 
 /** Só o editor: gera o vídeo cortado (e com a música) ao lado do original. */
 export const cutVideo = (input: string, edit: EditPlan, hooks: ExportHooks) => renderEdit(input, edit, hooks, outputPath(input, t('editado')))
+
+let estimateChild: ChildProcess | null = null
+let estimateCanceled = false
+
+export function cancelEstimate(): void {
+  estimateCanceled = true
+  if (estimateChild?.pid != null && estimateChild.exitCode == null) spawn('taskkill', ['/pid', String(estimateChild.pid), '/T', '/F'], { windowsHide: true })
+}
+
+/**
+ * Mede quanto a exportação vai demorar: faz a exportação de verdade (mesmas opções, mesmo método) em trechos curtos
+ * do meio do vídeo, num arquivo temporário. Mede dois tamanhos (1 s e 3 s de vídeo final) para separar o custo fixo
+ * (abrir o ffmpeg, preparar a placa, carregar o modelo de IA) do custo por segundo, e projeta para `totalOut` segundos.
+ */
+export async function estimateExport(input: string, s: ExportSettings, totalOut: number): Promise<ExportEstimate> {
+  const bad = (error: string, canceled = false): ExportEstimate => ({ ok: false, error, canceled, seconds: 0, sampleWall: 0, sampleOut: 0 })
+  estimateCanceled = false
+  let info: MediaInfo
+  try {
+    info = await probe(input)
+  } catch (e) {
+    return bad((e as Error).message)
+  }
+  const speed = s.speed > 0 ? s.speed : 1
+
+  /** Exporta `outLen` segundos de vídeo final do meio do vídeo e devolve quanto demorou (s), ou um erro */
+  const run = async (outLen: number): Promise<number | string> => {
+    const srcLen = Math.min(info.duration, outLen * speed)
+    const from = Math.max(0, (info.duration - srcLen) / 2)
+    const sample: ExportSettings = { ...s, start: from.toFixed(3), end: (from + srcLen).toFixed(3), maxDuration: 0 }
+    const out = join(app.getPath('temp'), `ytdlp-gui-estimativa-${randomUUID()}.mp4`)
+    const hooks: ExportHooks = { progress: () => {}, log: () => {}, spawned: (c) => (estimateChild = c), canceled: () => estimateCanceled }
+    const t0 = Date.now()
+    try {
+      const r = await exportVideo(input, sample, hooks, null, undefined, out)
+      estimateChild = null
+      if (!r.ok) return r.error ?? t('Falha na medição')
+    } finally {
+      rmSync(out, { force: true })
+    }
+    return (Date.now() - t0) / 1000
+  }
+
+  // Vídeo curto: mede ele inteiro e pronto
+  if (totalOut <= 3.2) {
+    const tAll = await run(totalOut)
+    if (estimateCanceled) return bad(t('Cancelado'), true)
+    if (typeof tAll === 'string') return bad(tAll)
+    return { ok: true, error: null, seconds: tAll, sampleWall: tAll, sampleOut: totalOut }
+  }
+  const t1 = await run(1)
+  if (estimateCanceled) return bad(t('Cancelado'), true)
+  if (typeof t1 === 'string') return bad(t1)
+  const t3 = await run(3)
+  if (estimateCanceled) return bad(t('Cancelado'), true)
+  if (typeof t3 === 'string') return bad(t3)
+  // t = fixo + porSegundo × duração; com ruído, cai para a proporção simples do trecho maior
+  const perSecond = (t3 - t1) / 2
+  const seconds = perSecond > 0 ? Math.max(0, t1 - perSecond) + perSecond * totalOut : (t3 / 3) * totalOut
+  return { ok: true, error: null, seconds, sampleWall: t1 + t3, sampleOut: 4 }
+}
 
 interface AiPlan {
   start: number

@@ -237,6 +237,7 @@ export default function ExportPage({ ctx, jobs, source, setSource, edit, clearEd
             saved={ctx.settings.exportPresets}
             onSavePreset={ctx.savePreset}
             onDeletePreset={ctx.deletePreset}
+            inputPath={source}
           />
         </div>
         <div className="space-y-2 border-t border-line p-4">

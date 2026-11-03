@@ -1,12 +1,13 @@
 import { app, BrowserWindow, clipboard, dialog, ipcMain, shell } from 'electron'
 import { join } from 'path'
-import type { JobRequest, Settings } from '../shared/types'
+import type { ExportSettings, JobRequest, Settings } from '../shared/types'
 import { getSettings, setSettings } from './settings'
 import { ensureBundledBinaries, getToolStatus } from './tools'
 import { cancelInfo, checkYtdlpUpdate, getComments, getHelp, getInfo, updateYtdlp } from './ytdlp'
 import { frcAmfWorks, listH264Encoders, listRifeGpus } from './convert'
 import { audioDuration, frame, peaks, probe, thumbs } from './media'
 import * as jobs from './jobs'
+import { cancelEstimate, estimateExport } from './export'
 import { setLang, t } from '../shared/i18n'
 
 let mainWin: BrowserWindow | null = null
@@ -151,6 +152,8 @@ function registerIpc(): void {
     })
     return r.canceled ? null : r.filePaths[0]
   })
+  ipcMain.handle('export:estimate', (_e, input: string, s: ExportSettings, totalOut: number) => estimateExport(input, s, totalOut))
+  ipcMain.handle('export:estimate-cancel', () => cancelEstimate())
   ipcMain.handle('jobs:list', () => jobs.listJobs())
   ipcMain.handle('jobs:add', (_e, req: JobRequest) => jobs.addJob(req))
   ipcMain.handle('jobs:cancel', (_e, id: string) => jobs.cancelJob(id))

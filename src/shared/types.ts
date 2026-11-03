@@ -170,6 +170,18 @@ export interface ConvertOptions {
 
 export type JobKind = 'download' | 'export' | 'cut'
 
+/** Resultado da medição de tempo de uma exportação */
+export interface ExportEstimate {
+  ok: boolean
+  error: string | null
+  canceled?: boolean
+  /** Tempo estimado para a exportação inteira (s) */
+  seconds: number
+  /** Quanto durou o trecho de teste (s) e quanto de vídeo final ele gerou (s) */
+  sampleWall: number
+  sampleOut: number
+}
+
 /** Trecho do vídeo original, em segundos */
 export interface Segment {
   start: number

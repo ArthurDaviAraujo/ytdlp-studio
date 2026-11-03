@@ -1,10 +1,10 @@
 import { useState, type ReactNode } from 'react'
-import { Bookmark, RotateCcw, Trash2, TriangleAlert, X } from 'lucide-react'
+import { Bookmark, RotateCcw, Timer, Trash2, TriangleAlert, X } from 'lucide-react'
 import type { Capabilities, ExportSettings, FrameMethod, Framing, SavedPreset } from '../../../shared/types'
 import { BUILTIN_PRESETS, isV4Model, modelVersionKey, splitModelId } from '../../../shared/presets'
-import { Button, Field, Segmented, Select, TextInput, Toggle, cx } from './ui'
+import { Button, Field, MaxQualityButton, Segmented, Select, Spinner, TextInput, Toggle, cx } from './ui'
 import { duration, parseTime } from '../lib/format'
-import { t } from '../../../shared/i18n'
+import { locale, t } from '../../../shared/i18n'
 
 export const ENCODER_LABEL: Record<string, string> = {
   h264_amf: 'Placa AMD (h264_amf)',
@@ -59,6 +59,16 @@ export interface SourceInfo {
   duration: number | null
 }
 
+/** 75 → "1 min 15 s"; 3700 → "1 h 02 min" */
+function niceTime(sec: number): string {
+  const s = Math.max(1, Math.round(sec))
+  if (s < 60) return `${s} s`
+  const m = Math.floor(s / 60)
+  if (m < 60) return `${m} min${s % 60 ? ` ${String(s % 60).padStart(2, '0')} s` : ''}`
+  const h = Math.floor(m / 60)
+  return `${h} h ${String(m % 60).padStart(2, '0')} min`
+}
+
 function Sub({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="space-y-2.5 border-t border-line pt-3">
@@ -76,7 +86,8 @@ export default function ExportForm({
   source,
   saved,
   onSavePreset,
-  onDeletePreset
+  onDeletePreset,
+  inputPath
 }: {
   value: ExportSettings
   onChange: (s: ExportSettings) => void
@@ -86,6 +97,8 @@ export default function ExportForm({
   saved: SavedPreset[]
   onSavePreset: (s: ExportSettings) => void
   onDeletePreset: (id: string) => void
+  /** Arquivo do vídeo, para medir quanto a exportação vai demorar */
+  inputPath?: string | null
 }) {
   const [naming, setNaming] = useState<string | null>(null)
   const set = <K extends keyof ExportSettings>(k: K, v: ExportSettings[K]) => onChange({ ...value, [k]: v })
@@ -106,6 +119,28 @@ export default function ExportForm({
   const end = parseTime(value.end) ?? source?.duration ?? null
   const outDur = end != null ? Math.max(0, end - start) / value.speed : null
   const tooLong = value.maxDuration > 0 && outDur != null && outDur > value.maxDuration + 0.5
+
+  // Estimativa de tempo: mede o método escolhido num trecho curto e guarda o resultado por método
+  const [measuring, setMeasuring] = useState(false)
+  const [measured, setMeasured] = useState<{ base: string; label: string; seconds: number; ratio: number }[]>([])
+  const [measureError, setMeasureError] = useState<string | null>(null)
+  // Tudo o que muda o tempo, menos o método (para poder comparar os métodos entre si)
+  const baseKey = JSON.stringify([inputPath, value.width, value.height, value.framing, value.zoom, value.fps, value.speed, value.start, value.end, value.encoder, value.quality, value.maxBitrate, value.audio, outDur?.toFixed(1)])
+  const methodLabel = (m: FrameMethod) => (m === 'ai' ? `${t('IA (RIFE)')} · ${splitModelId(value.aiModel).name}${value.aiUhd ? ' UHD' : ''}${value.aiTtaSpatial || value.aiTtaTemporal ? ' TTA' : ''}` : m === 'gpu' ? t('Placa AMD') : m === 'cpu' ? t('Processador') : t('Duplicar'))
+  const label = methodLabel(value.method)
+  const mine = measured.find((m) => m.base === baseKey && m.label === label)
+  const sameBase = measured.filter((m) => m.base === baseKey).sort((a, b) => a.seconds - b.seconds)
+
+  const measure = async () => {
+    if (!inputPath || outDur == null || outDur <= 0) return
+    setMeasuring(true)
+    setMeasureError(null)
+    const r = await window.api.estimateExport(inputPath, value, outDur)
+    setMeasuring(false)
+    if (r.canceled) return
+    if (!r.ok) return setMeasureError(r.error)
+    setMeasured((cur) => [...cur.filter((m) => !(m.base === baseKey && m.label === label)), { base: baseKey, label, seconds: r.seconds, ratio: r.seconds / outDur }])
+  }
 
   const methods: { value: FrameMethod; label: string; disabled?: boolean }[] = [
     { value: 'duplicate', label: t('Duplicar') },
@@ -260,6 +295,34 @@ export default function ExportForm({
               ? t('Vai criar quadros: de {from} para {to} fps.', { from: Math.round(effFps * 100) / 100, to: target })
               : t('Com estas opções nenhum quadro novo é criado.')}
         </p>
+        {inputPath && outDur != null && outDur > 0 && (
+          <div className="space-y-1.5 rounded-lg bg-panel-2 p-2.5 text-xs">
+            <div className="flex items-center gap-2">
+              <Button size="sm" icon={measuring ? <Spinner className="h-3.5 w-3.5" /> : <Timer className="h-3.5 w-3.5" />} onClick={measuring ? () => void window.api.cancelEstimate() : measure}>
+                {measuring ? t('Medindo… (clique para cancelar)') : mine ? t('Medir de novo') : t('Estimar o tempo')}
+              </Button>
+              {mine && !measuring && (
+                <span className="text-sm">
+                  <span className="font-semibold text-text">≈ {niceTime(mine.seconds)}</span> <span className="text-muted">· {t('{n}x a duração do vídeo', { n: mine.ratio < 10 ? mine.ratio.toLocaleString(locale(), { maximumFractionDigits: 1 }) : Math.round(mine.ratio) })}</span>
+                </span>
+              )}
+            </div>
+            {!mine && !measuring && !measureError && <p className="text-faint">{t('Roda o método escolhido em dois trechos curtos do seu vídeo (1 e 3 s) e calcula o tempo para o resto, nesta máquina.')}</p>}
+            {measureError && <p className="text-err">{measureError}</p>}
+            {sameBase.length > 1 && (
+              <div className="space-y-0.5 pt-0.5">
+                <div className="text-faint">{t('Comparando neste vídeo:')}</div>
+                {sameBase.map((m) => (
+                  <div key={m.label} className={cx('flex justify-between gap-2', m.label === label ? 'text-text' : 'text-muted')}>
+                    <span className="truncate">{m.label}</span>
+                    <span className="font-mono tabular-nums">{niceTime(m.seconds)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {mine && <p className="text-faint">{t('É uma estimativa: pode mudar se o PC estiver ocupado com outras coisas.')}</p>}
+          </div>
+        )}
         {value.method === 'ai' && rifeModels.length > 0 && (
           <div className="space-y-2 rounded-lg bg-panel-2 p-3">
             <Field label={t('Placa de vídeo')} hint={t('Num notebook com duas placas, escolha a NVIDIA ou AMD dedicada para ir mais rápido.')}>
@@ -347,6 +410,19 @@ export default function ExportForm({
       </Sub>
 
       <Sub title={t('Qualidade e arquivo')}>
+        {(() => {
+          // Qualidade máxima: imagem em 15 (sem perda visível), o codificador que mais preserva detalhe, sem teto de taxa e áudio no máximo
+          const best = { quality: 15, encoder: 'libx264', maxBitrate: 0, audio: true, audioKbps: 320 }
+          const isBest = value.quality <= best.quality && value.encoder === best.encoder && value.maxBitrate === 0 && value.audio && value.audioKbps === best.audioKbps
+          return (
+            <MaxQualityButton
+              active={isBest}
+              onClick={() => onChange({ ...value, ...best })}
+              detail={t('Imagem em 15, libx264, sem limite de taxa e áudio AAC 320 kbps. Tamanho, enquadramento e FPS não mudam.')}
+              warning={t('Pode aumentar drasticamente o tamanho do arquivo e o tempo de preparo.')}
+            />
+          )
+        })()}
         <Field label={t('Qualidade: {n} (menor = melhor, arquivo maior)', { n: value.quality })}>
           <input type="range" min={14} max={32} step={1} value={value.quality} onChange={(e) => set('quality', Number(e.target.value))} className="w-full accent-[#ff4d4d]" />
         </Field>

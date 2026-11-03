@@ -88,3 +88,98 @@ select option {
 .bar-indeterminate {
   animation: indeterminate 1.3s ease-in-out infinite;
 }
+
+/* Botão "Qualidade máxima": borda em gradiente girando, brilho e um reflexo passando */
+@property --mq-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+@keyframes mq-spin {
+  to {
+    --mq-angle: 360deg;
+  }
+}
+@keyframes mq-shine {
+  0% {
+    transform: translateX(-120%) skewX(-20deg);
+  }
+  60%,
+  100% {
+    transform: translateX(320%) skewX(-20deg);
+  }
+}
+@keyframes mq-glow {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+.mq-btn {
+  position: relative;
+  isolation: isolate;
+  border-radius: 14px;
+  padding: 1.5px;
+  background: conic-gradient(from var(--mq-angle), #ff4d4d, #ff9a3c, #ffd54a, #ff5ea8, #ff4d4d);
+  animation: mq-spin 4s linear infinite;
+  transition: transform 0.15s ease;
+}
+.mq-btn::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  z-index: -1;
+  border-radius: 18px;
+  background: inherit;
+  filter: blur(14px);
+  animation: mq-glow 2.6s ease-in-out infinite;
+}
+.mq-btn:hover {
+  transform: translateY(-1px) scale(1.01);
+}
+.mq-btn:active {
+  transform: scale(0.99);
+}
+.mq-inner {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12.5px;
+  background: linear-gradient(135deg, #2a1416 0%, #1a1218 45%, #241a10 100%);
+}
+.mq-inner::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 35%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.16), transparent);
+  animation: mq-shine 3.2s ease-in-out infinite;
+  pointer-events: none;
+}
+.mq-title {
+  background: linear-gradient(90deg, #ffb36b, #ffe08a, #ff8fb8);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+/* Já na qualidade máxima: calmo, sem girar */
+.mq-btn.mq-on {
+  animation: none;
+  background: linear-gradient(135deg, #34d399, #ffd54a);
+  cursor: default;
+}
+.mq-btn.mq-on::before {
+  animation: none;
+  opacity: 0.25;
+}
+.mq-btn.mq-on:hover,
+.mq-btn.mq-on:active {
+  transform: none;
+}
+.mq-btn.mq-on .mq-inner::after {
+  display: none;
+}

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useMemo, useState, type ReactNode } from 'react'
 import { ChevronDown, Copy, Download, FolderOpen, SlidersHorizontal, TriangleAlert } from 'lucide-react'
-import { Button, Checkbox, Field, Segmented, Select, TextInput, Toggle, cx } from './ui'
+import { Button, Checkbox, Field, MaxQualityButton, Segmented, Select, TextInput, Toggle, cx } from './ui'
 import { AUDIO_FORMATS, SPONSOR_CATEGORIES, formatKind, quoteArg, type DownloadOptions, type Mode } from '../lib/args'
 import type { AppContext } from '../App'
 import ExportForm, { ENCODER_LABEL } from './ExportForm'
@@ -73,6 +73,18 @@ export default function OptionsPanel({
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         <Group title={t('O que baixar')}>
+          {(() => {
+            // Qualidade máxima: o maior tamanho e FPS que o site tiver, qualquer codec, melhor áudio e nada de converter
+            const isBest = opts.maxHeight === 0 && opts.maxFps === 0 && opts.vcodec === '' && !opts.convertH264 && (opts.mode === 'audio' ? opts.audioFormat === 'best' && opts.audioQuality === '0' : opts.mode === 'video')
+            return (
+              <MaxQualityButton
+                active={isBest}
+                onClick={() => setOpts((o) => ({ ...o, mode: o.mode === 'audio' ? 'audio' : 'video', maxHeight: 0, maxFps: 0, vcodec: '', convertH264: false, audioFormat: 'best', audioQuality: '0' }))}
+                detail={t('O maior tamanho e FPS do site, o melhor áudio e nenhuma conversão. Players antigos podem não abrir AV1 ou VP9.')}
+                warning={t('Pode aumentar drasticamente o tamanho do arquivo e o tempo de download.')}
+              />
+            )
+          })()}
           <Segmented<Mode>
             value={opts.mode}
             onChange={(m) => set('mode', m)}

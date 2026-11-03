@@ -2,6 +2,8 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import type {
   Capabilities,
   CommentsResult,
+  ExportEstimate,
+  ExportSettings,
   HelpData,
   MediaInfo,
   InfoRequest,
@@ -44,6 +46,8 @@ const api = {
   removeJob: (id: string): Promise<string[]> => ipcRenderer.invoke('jobs:remove', id),
   clearFinished: (): Promise<string[]> => ipcRenderer.invoke('jobs:clear'),
   getJobLog: (id: string): Promise<string[]> => ipcRenderer.invoke('jobs:log', id),
+  estimateExport: (input: string, s: ExportSettings, totalOut: number): Promise<ExportEstimate> => ipcRenderer.invoke('export:estimate', input, s, totalOut),
+  cancelEstimate: (): Promise<void> => ipcRenderer.invoke('export:estimate-cancel'),
   mixerOpen: (size: { width: number; height: number }): Promise<void> => ipcRenderer.invoke('mixer:open', size),
   mixerClose: (): Promise<void> => ipcRenderer.invoke('mixer:close'),
   /** Do editor vai para o mixer; do mixer vai para o editor */
