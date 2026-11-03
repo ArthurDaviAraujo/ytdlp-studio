@@ -1,7 +1,7 @@
-import { useState, type ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { Bookmark, RotateCcw, Timer, Trash2, TriangleAlert, X } from 'lucide-react'
 import type { Capabilities, ExportSettings, FrameMethod, Framing, SavedPreset } from '../../../shared/types'
-import { BUILTIN_PRESETS, isV4Model, modelVersionKey, splitModelId } from '../../../shared/presets'
+import { BASE_EXPORT, BUILTIN_PRESETS, isV4Model, modelVersionKey, splitModelId } from '../../../shared/presets'
 import { Button, Field, MaxQualityButton, Segmented, Select, Spinner, TextInput, Toggle, cx } from './ui'
 import { duration, parseTime } from '../lib/format'
 import { locale, t } from '../../../shared/i18n'
@@ -100,6 +100,8 @@ export default function ExportForm({
   /** Arquivo do vídeo, para medir quanto a exportação vai demorar */
   inputPath?: string | null
 }) {
+  // Valores de antes de ligar a Qualidade máxima, para desligar e voltar a eles
+  const beforeBest = useRef<Pick<ExportSettings, 'quality' | 'encoder' | 'maxBitrate' | 'audio' | 'audioKbps'> | null>(null)
   const [naming, setNaming] = useState<string | null>(null)
   const set = <K extends keyof ExportSettings>(k: K, v: ExportSettings[K]) => onChange({ ...value, [k]: v })
   // Trocar de destino mantém o trecho escolhido
@@ -414,10 +416,20 @@ export default function ExportForm({
           // Qualidade máxima: imagem em 15 (sem perda visível), o codificador que mais preserva detalhe, sem teto de taxa e áudio no máximo
           const best = { quality: 15, encoder: 'libx264', maxBitrate: 0, audio: true, audioKbps: 320 }
           const isBest = value.quality <= best.quality && value.encoder === best.encoder && value.maxBitrate === 0 && value.audio && value.audioKbps === best.audioKbps
+          const toggle = () => {
+            if (!isBest) {
+              beforeBest.current = { quality: value.quality, encoder: value.encoder, maxBitrate: value.maxBitrate, audio: value.audio, audioKbps: value.audioKbps }
+              return onChange({ ...value, ...best })
+            }
+            // Desligar: volta ao que estava antes; sem isso, ao padrão
+            const { quality, encoder, maxBitrate, audio, audioKbps } = BASE_EXPORT
+            onChange({ ...value, ...(beforeBest.current ?? { quality, encoder, maxBitrate, audio, audioKbps }) })
+            beforeBest.current = null
+          }
           return (
             <MaxQualityButton
               active={isBest}
-              onClick={() => onChange({ ...value, ...best })}
+              onClick={toggle}
               detail={t('Imagem em 15, libx264, sem limite de taxa e áudio AAC 320 kbps. Tamanho, enquadramento e FPS não mudam.')}
               warning={t('Pode aumentar drasticamente o tamanho do arquivo e o tempo de preparo.')}
             />

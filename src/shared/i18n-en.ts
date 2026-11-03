@@ -605,6 +605,8 @@ export const en: Record<string, string> = {
   Abrir: 'Open',
   ' Editar': ' Edit',
   'Qualidade máxima ativada': 'Maximum quality on',
+  'Clique para desativar e voltar ao que estava antes': 'Click to turn off and go back to what it was before',
+  'desativar': 'turn off',
   'Pode aumentar drasticamente o tamanho do arquivo e o tempo de preparo.': 'This can drastically increase the file size and the preparation time.',
   'Pode aumentar drasticamente o tamanho do arquivo e o tempo de download.': 'This can drastically increase the file size and the download time.',
   'Imagem em 15, libx264, sem limite de taxa e áudio AAC 320 kbps. Tamanho, enquadramento e FPS não mudam.': 'Image at 15, libx264, no bitrate cap and AAC 320 kbps audio. Size, framing and FPS stay as they are.',

@@ -121,7 +121,7 @@ select option {
 .mq-btn {
   position: relative;
   isolation: isolate;
-  border-radius: 14px;
+  border-radius: 10px;
   padding: 1.5px;
   background: conic-gradient(from var(--mq-angle), #ff4d4d, #ff9a3c, #ffd54a, #ff5ea8, #ff4d4d);
   animation: mq-spin 4s linear infinite;
@@ -130,11 +130,11 @@ select option {
 .mq-btn::before {
   content: "";
   position: absolute;
-  inset: -6px;
+  inset: -3px;
   z-index: -1;
-  border-radius: 18px;
+  border-radius: 13px;
   background: inherit;
-  filter: blur(14px);
+  filter: blur(9px);
   animation: mq-glow 2.6s ease-in-out infinite;
 }
 .mq-btn:hover {
@@ -146,7 +146,7 @@ select option {
 .mq-inner {
   position: relative;
   overflow: hidden;
-  border-radius: 12.5px;
+  border-radius: 8.5px;
   background: linear-gradient(135deg, #2a1416 0%, #1a1218 45%, #241a10 100%);
 }
 .mq-inner::after {
@@ -170,15 +170,14 @@ select option {
 .mq-btn.mq-on {
   animation: none;
   background: linear-gradient(135deg, #34d399, #ffd54a);
-  cursor: default;
 }
 .mq-btn.mq-on::before {
   animation: none;
   opacity: 0.25;
 }
-.mq-btn.mq-on:hover,
-.mq-btn.mq-on:active {
+.mq-btn.mq-on:hover {
   transform: none;
+  filter: brightness(1.12);
 }
 .mq-btn.mq-on .mq-inner::after {
   display: none;

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useRef, useState, type ReactNode } from 'react'
 import { ChevronDown, Copy, Download, FolderOpen, SlidersHorizontal, TriangleAlert } from 'lucide-react'
 import { Button, Checkbox, Field, MaxQualityButton, Segmented, Select, TextInput, Toggle, cx } from './ui'
 import { AUDIO_FORMATS, SPONSOR_CATEGORIES, formatKind, quoteArg, type DownloadOptions, type Mode } from '../lib/args'
@@ -46,6 +46,8 @@ export default function OptionsPanel({
   url: string
   action: { label: string; disabled: boolean; run: () => void }
 }) {
+  // Opções de antes de ligar a Qualidade máxima, para desligar e voltar a elas
+  const beforeBest = useRef<Partial<DownloadOptions> | null>(null)
   const [template, setTemplate] = useState(ctx.settings.outputTemplate)
   const [showCmd, setShowCmd] = useState(false)
   const set = <K extends keyof DownloadOptions>(k: K, v: DownloadOptions[K]) => setOpts((o) => ({ ...o, [k]: v }))
@@ -76,10 +78,21 @@ export default function OptionsPanel({
           {(() => {
             // Qualidade máxima: o maior tamanho e FPS que o site tiver, qualquer codec, melhor áudio e nada de converter
             const isBest = opts.maxHeight === 0 && opts.maxFps === 0 && opts.vcodec === '' && !opts.convertH264 && (opts.mode === 'audio' ? opts.audioFormat === 'best' && opts.audioQuality === '0' : opts.mode === 'video')
+            const toggle = () => {
+              if (!isBest) {
+                const { mode, maxHeight, maxFps, vcodec, convertH264, audioFormat, audioQuality } = opts
+                beforeBest.current = { mode, maxHeight, maxFps, vcodec, convertH264, audioFormat, audioQuality }
+                return setOpts((o) => ({ ...o, mode: o.mode === 'audio' ? 'audio' : 'video', maxHeight: 0, maxFps: 0, vcodec: '', convertH264: false, audioFormat: 'best', audioQuality: '0' }))
+              }
+              // Desligar: volta ao que estava antes; sem isso, a 1080p
+              const back = beforeBest.current ?? (opts.mode === 'audio' ? { audioFormat: 'mp3' } : { maxHeight: 1080 })
+              beforeBest.current = null
+              setOpts((o) => ({ ...o, ...back }))
+            }
             return (
               <MaxQualityButton
                 active={isBest}
-                onClick={() => setOpts((o) => ({ ...o, mode: o.mode === 'audio' ? 'audio' : 'video', maxHeight: 0, maxFps: 0, vcodec: '', convertH264: false, audioFormat: 'best', audioQuality: '0' }))}
+                onClick={toggle}
                 detail={t('O maior tamanho e FPS do site, o melhor áudio e nenhuma conversão. Players antigos podem não abrir AV1 ou VP9.')}
                 warning={t('Pode aumentar drasticamente o tamanho do arquivo e o tempo de download.')}
               />
