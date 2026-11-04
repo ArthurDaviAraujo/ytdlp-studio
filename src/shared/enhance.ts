@@ -25,11 +25,15 @@ export const NO_ENHANCE: EnhanceSettings = {
   warmth: 0,
   autoLight: false,
   stabilize: 'off',
+  autoCrop: false,
   deflicker: false,
   grain: 0,
   audioDenoise: 0,
   audioCut: false,
-  audioLevel: 'off'
+  audioLevel: 'off',
+  separate: false,
+  voice: 100,
+  music: 100
 }
 
 /** Configurações antigas (e predefinições salvas antes da 1.4) não têm `enhance` */
@@ -157,7 +161,7 @@ export function audioFilters(e: EnhanceSettings): string[] {
 
 /** Algo para a imagem (sem contar o som)? */
 export function hasImageEnhance(e: EnhanceSettings): boolean {
-  return e.upscaler !== 'none' || cleanFilters(e).length > 0 || lookFilters(e).length > 0 || e.stabilize !== 'off'
+  return e.upscaler !== 'none' || e.autoCrop || cleanFilters(e).length > 0 || lookFilters(e).length > 0 || e.stabilize !== 'off'
 }
 
 /** Quantos ajustes estão ligados (para o pontinho e o resumo) */
@@ -171,10 +175,11 @@ export function enhanceCount(e: EnhanceSettings): { image: number; audio: number
     e.sharpen > 0,
     !!(e.brightness || e.contrast || e.saturation || e.gamma || e.vibrance || e.warmth || e.autoLight),
     e.stabilize !== 'off',
+    e.autoCrop,
     e.deflicker,
     e.grain > 0
   ].filter(Boolean).length
-  const audio = [e.audioCut, e.audioDenoise > 0, e.audioLevel !== 'off'].filter(Boolean).length
+  const audio = [e.audioCut, e.audioDenoise > 0, e.audioLevel !== 'off', e.separate].filter(Boolean).length
   return { image, audio }
 }
 
@@ -197,7 +202,7 @@ export const ENHANCE_PRESETS: EnhancePreset[] = [
     id: 'old',
     name: 'Vídeo antigo / VHS',
     hint: 'Desentrelaça, tira o ruído forte e o tremor de luz, amplia com IA e dá um pouco mais de cor',
-    patch: { upscaler: 'esrgan', esrganModel: 'realesr-animevideov3', upScale: 0, deinterlace: true, denoise: 5, denoiseMethod: 'quality', deflicker: true, saturation: 10, contrast: 8, sharpen: 3 }
+    patch: { upscaler: 'esrgan', esrganModel: 'realesr-animevideov3', upScale: 0, autoCrop: true, deinterlace: true, denoise: 5, denoiseMethod: 'quality', deflicker: true, saturation: 10, contrast: 8, sharpen: 3 }
   },
   {
     id: 'dark',

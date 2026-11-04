@@ -1,10 +1,17 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Bookmark, RotateCcw, Timer, Trash2, TriangleAlert, X } from 'lucide-react'
-import type { Capabilities, EnhanceSettings, ExportSettings, FrameMethod, Framing, SavedPreset } from '../../../shared/types'
+import type { Capabilities, EnhanceSettings, ToolStatus, ExportSettings, FrameMethod, Framing, SavedPreset } from '../../../shared/types'
 import { BASE_EXPORT, BUILTIN_PRESETS, isV4Model, modelVersionKey, splitModelId } from '../../../shared/presets'
 import { chooseScale, enhanceCount, enhanceOf, neededScale, withAiSize } from '../../../shared/enhance'
 import { Button, Field, InfoTip, MaxQualityButton, WithTip, Range, Segmented, Select, Spinner, TextInput, Toggle, cx } from './ui'
 import EnhancePanel from './EnhancePanel'
+import OverlayPanel from './OverlayPanel'
+import SubtitlePanel from './SubtitlePanel'
+import PackButton from './PackButton'
+import TrackControl from './TrackControl'
+import { trackFor } from '../../../shared/track'
+import { subtitlesOf } from '../../../shared/subtitles'
+import { hasOverlay, overlayOf } from '../../../shared/overlay'
 import { duration, parseTime } from '../lib/format'
 import { locale, t } from '../../../shared/i18n'
 
@@ -14,8 +21,22 @@ export const ENCODER_LABEL: Record<string, string> = {
   h264_qsv: 'Intel Quick Sync (h264_qsv)',
   h264_mf: 'Windows Media Foundation (h264_mf)',
   libx264: 'Processador (libx264)',
-  libopenh264: 'Processador (OpenH264)'
+  libopenh264: 'Processador (OpenH264)',
+  hevc_amf: 'Placa AMD (hevc_amf)',
+  hevc_nvenc: 'Placa NVIDIA (hevc_nvenc)',
+  hevc_qsv: 'Intel Quick Sync (hevc_qsv)',
+  libx265: 'Processador (libx265)',
+  av1_amf: 'Placa AMD (av1_amf)',
+  av1_nvenc: 'Placa NVIDIA (av1_nvenc)',
+  av1_qsv: 'Intel Quick Sync (av1_qsv)',
+  libsvtav1: 'Processador (SVT-AV1)'
 }
+
+const CODEC_GROUPS: { title: string; test: RegExp }[] = [
+  { title: 'H.264 (o mais compatível)', test: /^(h264_|libx264|libopenh264)/ },
+  { title: 'H.265 / HEVC (arquivo menor)', test: /^(hevc_|libx265)/ },
+  { title: 'AV1 (o menor arquivo)', test: /^(av1_|libsvtav1)/ }
+]
 
 const MODEL_HINT: Record<string, string> = {
   'rife-v4.26': 'o mais novo',
@@ -117,6 +138,7 @@ export default function ExportForm({
   onDeletePreset,
   inputPath,
   upscalers = { esrgan: null, cugan: null },
+  tools = null,
   onEstimate
 }: {
   value: ExportSettings
@@ -131,6 +153,8 @@ export default function ExportForm({
   inputPath?: string | null
   /** Programas de ampliar com IA que existem nesta instalação */
   upscalers?: { esrgan: string | null; cugan: string | null }
+  /** Programas encontrados (Whisper, IAs) */
+  tools?: ToolStatus | null
   /** Avisa o tempo medido para estas opções (null = ainda não medido) */
   onEstimate?: (seconds: number | null) => void
 }) {
@@ -198,7 +222,7 @@ export default function ExportForm({
 
   // Abas, com um ponto nas que têm algo diferente do normal
   const tabs: { id: FormTab; label: string; title: string; changed: number }[] = [
-    { id: 'format', label: t('Formato'), title: t('Tamanho e enquadramento'), changed: value.width || value.height ? 1 : 0 },
+    { id: 'format', label: t('Formato'), title: t('Tamanho, enquadramento, texto, logo e legendas'), changed: value.width || value.height || hasOverlay(overlayOf(value)) || subtitlesOf(value).on ? 1 : 0 },
     { id: 'image', label: t('Imagem'), title: t('Ampliar com IA, limpeza, nitidez, cor e correções'), changed: counts.image },
     { id: 'motion', label: t('Movimento / FPS'), title: t('FPS, quadros novos, velocidade e trecho'), changed: value.fps || value.speed !== 1 || value.start || value.end ? 1 : 0 },
     { id: 'file', label: t('Arquivo'), title: t('Qualidade, codificador, nome e som'), changed: counts.audio }
@@ -322,25 +346,31 @@ export default function ExportForm({
           />
           {value.framing === 'crop' && (
             <>
+              {inputPath && source?.duration ? <TrackControl value={value} onChange={onChange} inputPath={inputPath} duration={source.duration} /> : null}
               <Field label={<WithTip text={t('Zoom do corte: {zoom}x', { zoom: (value.zoom ?? 1).toFixed(1) })}>{t('Com zoom, o recorte pode ir para qualquer canto. Na prévia: arraste o quadro e use a rodinha do mouse.')}</WithTip>}>
                 <input type="range" min={1} max={4} step={0.05} value={value.zoom ?? 1} onChange={(e) => set('zoom', Number(e.target.value))} className="w-full accent-[#ff4d4d]" />
               </Field>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label={t('Horizontal: {n}%', { n: value.position })}>
-                  <input type="range" min={0} max={100} step={1} value={value.position} onChange={(e) => set('position', Number(e.target.value))} className="w-full accent-[#ff4d4d]" />
-                </Field>
-                <Field label={t('Vertical: {n}%', { n: value.positionY ?? 50 })}>
-                  <input type="range" min={0} max={100} step={1} value={value.positionY ?? 50} onChange={(e) => set('positionY', Number(e.target.value))} className="w-full accent-[#ff4d4d]" />
-                </Field>
-              </div>
-              <div className="flex gap-2">
-                <Button size="sm" onClick={() => onChange({ ...value, position: 50, positionY: 50 })}>
-                  {t('Centralizar')}
-                </Button>
-                <Button size="sm" variant="ghost" icon={<RotateCcw className="h-3.5 w-3.5" />} onClick={() => onChange({ ...value, position: 50, positionY: 50, zoom: 1 })}>
-                  {t('Resetar corte')}
-                </Button>
-              </div>
+              {/* Com o corte seguindo a pessoa, a posição é automática */}
+              {!trackFor(value, inputPath) && (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label={t('Horizontal: {n}%', { n: value.position })}>
+                      <input type="range" min={0} max={100} step={1} value={value.position} onChange={(e) => set('position', Number(e.target.value))} className="w-full accent-[#ff4d4d]" />
+                    </Field>
+                    <Field label={t('Vertical: {n}%', { n: value.positionY ?? 50 })}>
+                      <input type="range" min={0} max={100} step={1} value={value.positionY ?? 50} onChange={(e) => set('positionY', Number(e.target.value))} className="w-full accent-[#ff4d4d]" />
+                    </Field>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={() => onChange({ ...value, position: 50, positionY: 50 })}>
+                      {t('Centralizar')}
+                    </Button>
+                    <Button size="sm" variant="ghost" icon={<RotateCcw className="h-3.5 w-3.5" />} onClick={() => onChange({ ...value, position: 50, positionY: 50, zoom: 1 })}>
+                      {t('Resetar corte')}
+                    </Button>
+                  </div>
+                </>
+              )}
             </>
           )}
           {value.framing === 'blur' && (
@@ -358,6 +388,8 @@ export default function ExportForm({
           )}
         </Sub>
       )}
+      <OverlayPanel value={value} onChange={onChange} />
+      <SubtitlePanel value={value} onChange={onChange} whisper={tools?.whisper ?? null} />
         </>
       )}
 
@@ -384,6 +416,7 @@ export default function ExportForm({
         <Field label={<WithTip text={t('Quadros novos')}>{t('Como inventar as imagens que faltam quando o FPS sobe ou em câmera lenta.')}<br /><br />{t('Duplicar')}: {methodHint.duplicate}<br />{t('Placa AMD')}: {methodHint.gpu}<br />{t('Processador')}: {methodHint.cpu}<br />{t('IA (RIFE)')}: {methodHint.ai}</WithTip>}>
           <Segmented<FrameMethod> value={value.method} onChange={(m) => set('method', m)} options={methods} />
         </Field>
+        {!rifeModels.length && <PackButton id="rife" label={t('Baixar a IA (RIFE) para criar quadros')} />}
         {value.method === 'gpu' && !caps?.frcAmf && (
           <p className="text-xs text-warn">{t('Esta opção só existe em placas AMD. Com placa NVIDIA, use “IA (RIFE)”, que roda nela.')}</p>
         )}
@@ -511,16 +544,36 @@ export default function ExportForm({
         <Field label={<WithTip text={t('Qualidade: {n} (menor = melhor, arquivo maior)', { n: value.quality })}>{t('Quanto o vídeo é comprimido. 18 a 20 já parece igual ao original; 15 é quase sem perda; acima de 26 começa a aparecer borrão e quadradinhos. Cada 6 pontos a menos dobra o tamanho do arquivo, mais ou menos.')}</WithTip>}>
           <input type="range" min={14} max={32} step={1} value={value.quality} onChange={(e) => set('quality', Number(e.target.value))} className="w-full accent-[#ff4d4d]" />
         </Field>
-        <Field label={<WithTip text={t('Codificador')}>{t('Quem grava o vídeo. Placa de vídeo (AMD, NVIDIA, Intel): muito mais rápido. Processador (libx264): mais lento, mas guarda mais detalhe no mesmo tamanho de arquivo.')}</WithTip>}>
+        <Field
+          label={
+            <WithTip text={t('Codificador')}>
+              {t('Quem grava o vídeo. Placa de vídeo (AMD, NVIDIA, Intel): muito mais rápido. Processador (libx264): mais lento, mas guarda mais detalhe no mesmo tamanho de arquivo.')}
+              <br />
+              <br />
+              {t('H.264 abre em qualquer lugar. H.265 e AV1 deixam o arquivo de 20% a 50% menor com a mesma qualidade, mas celulares, TVs e sites antigos podem não abrir.')}
+            </WithTip>
+          }
+        >
           <Select value={value.encoder} onChange={(e) => set('encoder', e.target.value)}>
-            <option value="">{t('Automático')}{caps?.encoders[0] ? ` (${t(ENCODER_LABEL[caps.encoders[0]] ?? caps.encoders[0])})` : ''}</option>
-            {caps?.encoders.map((e) => (
-              <option key={e} value={e}>
-                {t(ENCODER_LABEL[e] ?? e)}
-              </option>
-            ))}
+            <option value="">
+              {t('Automático')}
+              {caps?.encoders[0] ? ` (${t(ENCODER_LABEL[caps.encoders[0]] ?? caps.encoders[0])})` : ''}
+            </option>
+            {CODEC_GROUPS.map((g) => {
+              const list = (caps?.allEncoders ?? caps?.encoders ?? []).filter((e) => g.test.test(e))
+              return list.length ? (
+                <optgroup key={g.title} label={t(g.title)}>
+                  {list.map((e) => (
+                    <option key={e} value={e}>
+                      {t(ENCODER_LABEL[e] ?? e)}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null
+            })}
           </Select>
         </Field>
+        {/^(hevc|av1|libx265|libsvtav1)/.test(value.encoder) && <p className="text-xs text-warn">{t('Arquivo menor, mas confira se o lugar onde vai postar aceita esse formato. Na dúvida, use H.264.')}</p>}
         <Field label={<WithTip text={t('Limite de taxa de bits (kbps, 0 = sem limite)')}>{t('Teto de dados por segundo. Deixe 0, a não ser que a rede ou o site exija um arquivo menor: com limite, cenas com muito movimento perdem qualidade.')}</WithTip>}>
           <TextInput type="number" min={0} step={500} value={value.maxBitrate} onChange={(e) => set('maxBitrate', Math.max(0, Number(e.target.value) || 0))} />
         </Field>
@@ -549,6 +602,40 @@ export default function ExportForm({
                 <option value="even">{t('Padrão das redes e partes baixas mais altas')}</option>
               </Select>
             </Field>
+            <Toggle
+              checked={enh.separate}
+              onChange={(v) => setEnh({ separate: v })}
+              label={
+                <WithTip text={t('Separar voz e música (IA)')}>
+                  {t('A IA separa quem fala (ou canta) do resto: música, barulho, motor. Aí dá para abaixar a música sem abaixar a voz, deixar só a voz ou tirar a voz (karaokê). Roda na placa de vídeo; uns segundos por minuto de vídeo.')}
+                </WithTip>
+              }
+            />
+            {enh.separate && (
+              <div className="space-y-3 rounded-lg bg-panel-2 p-2.5">
+                {!tools?.separator && <PackButton id="separar-voz" />}
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { label: 'Só a voz', voice: 100, music: 0 },
+                    { label: 'Sem voz (karaokê)', voice: 0, music: 100 },
+                    { label: 'Música mais baixa', voice: 100, music: 30 },
+                    { label: 'Voz mais alta', voice: 150, music: 100 }
+                  ].map((p) => (
+                    <button
+                      key={p.label}
+                      onClick={() => setEnh({ voice: p.voice, music: p.music })}
+                      className={cx('rounded-lg border px-2.5 py-1 text-xs', enh.voice === p.voice && enh.music === p.music ? 'border-accent/60 bg-accent/12 text-text' : 'border-line bg-panel text-muted hover:text-text')}
+                    >
+                      {t(p.label)}
+                    </button>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-x-4">
+                  <Range label={t('Voz')} value={enh.voice} min={0} max={200} step={5} neutral={100} format={(v) => `${v}%`} onChange={(v) => setEnh({ voice: v })} />
+                  <Range label={t('Música e fundo')} value={enh.music} min={0} max={200} step={5} neutral={100} format={(v) => `${v}%`} onChange={(v) => setEnh({ music: v })} />
+                </div>
+              </div>
+            )}
             <Range label={t('Tirar chiado e ruído de fundo')} value={enh.audioDenoise} min={0} max={10} onChange={(v) => setEnh({ audioDenoise: v })} format={(v) => (v ? String(v) : t('não'))} info={t('Tira o chiado constante de fundo (vento fraco, ventilador, ruído do microfone). Forte demais deixa a voz com som de “lata”.')} />
             <Toggle checked={enh.audioCut} onChange={(v) => setEnh({ audioCut: v })} label={<WithTip text={t('Cortar ronco e vento')}>{t('Tira os graves abaixo de 80 Hz, onde ficam o vento e o ronco do motor ou do ar-condicionado.')}</WithTip>} />
           </>

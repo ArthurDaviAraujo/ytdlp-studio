@@ -5,6 +5,7 @@ import { AI_KEEP_MAX, ENHANCE_PRESETS, NO_ENHANCE, chooseScale, cuganNoises, enh
 import { Button, Disclosure, Field, InfoTip, Range, Segmented, Select, Toggle } from './ui'
 import { t } from '../../../shared/i18n'
 import type { SourceInfo } from './ExportForm'
+import PackButton from './PackButton'
 
 const ESRGAN_MODELS: { id: EnhanceSettings['esrganModel']; label: string; hint: string }[] = [
   { id: 'realesr-animevideov3', label: 'Vídeo (rápido)', hint: 'Feito para vídeo: rápido e estável entre quadros. Bom para quase tudo.' },
@@ -135,6 +136,12 @@ export default function EnhancePanel({
         }
       >
         <Segmented<Upscaler> value={e.upscaler} onChange={(u) => set({ upscaler: u })} options={engines} />
+        {(!upscalers.esrgan || !upscalers.cugan) && (
+          <div className="flex flex-wrap gap-2">
+            {!upscalers.esrgan && <PackButton id="realesrgan" />}
+            {!upscalers.cugan && <PackButton id="realcugan" />}
+          </div>
+        )}
 
         {e.upscaler === 'esrgan' && (
           <Field label={<Tip text={t('Modelo')}>{t(ESRGAN_MODELS.find((m) => m.id === e.esrganModel)?.hint ?? '')}</Tip>}>
@@ -319,6 +326,11 @@ export default function EnhancePanel({
             ]}
           />
         </Field>
+        <Toggle
+          checked={e.autoCrop}
+          onChange={(v) => set({ autoCrop: v })}
+          label={<Tip text={t('Cortar bordas pretas sozinho')}>{t('Procura faixas pretas fixas em volta da imagem (vídeo antigo 4:3 dentro de 16:9, gravação de tela, vídeo com tarja) e corta antes de tudo. Depois disso o enquadramento usa só a imagem de dentro. A prévia de cima não mostra esse corte; a de antes e depois mostra.')}</Tip>}
+        />
         <Toggle checked={e.deflicker} onChange={(v) => set({ deflicker: v })} label={<Tip text={t('Tirar o pisca-pisca da luz')}>{t('Para lâmpadas que piscam na gravação e timelapses.')}</Tip>} />
         <Range label={t('Granulado de filme')} value={e.grain} min={0} max={10} onChange={setNum('grain')} format={level} info={t('Um granulado leve esconde as faixas e deixa a imagem com cara de cinema.')} />
       </Sub>

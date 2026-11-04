@@ -10,7 +10,11 @@ export const isVideoFile = (p: string) => VIDEO_EXT.has(extname(p).toLowerCase()
 
 const ENCODER_ORDER = ['h264_amf', 'h264_nvenc', 'h264_qsv', 'libx264', 'h264_mf', 'libopenh264']
 
+/** H.265 e AV1: arquivo menor com a mesma qualidade; nem todo aparelho antigo abre */
+const EXTRA_ORDER = ['hevc_amf', 'hevc_nvenc', 'hevc_qsv', 'libx265', 'av1_amf', 'av1_nvenc', 'av1_qsv', 'libsvtav1']
+
 let encodersCache: { ffmpeg: string; list: Promise<string[]> } | null = null
+let extraCache: { ffmpeg: string; list: Promise<string[]> } | null = null
 
 /** Testa um encoder com um vídeo de 0,1 s; os de GPU aparecem na lista do ffmpeg mesmo sem a placa. */
 function encoderWorks(ffmpeg: string, enc: string): Promise<boolean> {
@@ -42,6 +46,26 @@ export function listH264Encoders(): Promise<string[]> {
   return list
 }
 
+/** Todos os codificadores que funcionam: H.264 primeiro (o mais compatível), depois H.265 e AV1. */
+export async function listVideoEncoders(): Promise<string[]> {
+  const ffmpeg = getToolStatus().ffmpeg.path
+  if (!ffmpeg) return []
+  if (extraCache?.ffmpeg !== ffmpeg) {
+    const list = (async () => {
+      const r = spawnSync(ffmpeg, ['-hide_banner', '-encoders'], { encoding: 'utf8', windowsHide: true })
+      const found = new Set([...(r.stdout ?? '').matchAll(/^\s*V\S*\s+(\w+)\s/gm)].map((m) => m[1]))
+      const candidates = EXTRA_ORDER.filter((e) => found.has(e))
+      const ok = await Promise.all(candidates.map((e) => encoderWorks(ffmpeg, e)))
+      return candidates.filter((_, i) => ok[i])
+    })()
+    extraCache = { ffmpeg, list }
+  }
+  return [...(await listH264Encoders()), ...(await extraCache!.list)]
+}
+
+/** MP4 com H.265 precisa da etiqueta hvc1 para abrir no iPhone e no Mac */
+const hvc1 = ['-tag:v', 'hvc1']
+
 /** q: 14 (melhor) a 32 (menor arquivo). maxKbps > 0 limita a taxa de bits. */
 export function encoderArgs(enc: string, q = 20, maxKbps = 0): string[] {
   const cap = maxKbps > 0 ? ['-maxrate', `${maxKbps}k`, '-bufsize', `${maxKbps * 2}k`] : []
@@ -58,6 +82,28 @@ export function encoderArgs(enc: string, q = 20, maxKbps = 0): string[] {
       return ['-c:v', 'h264_mf', '-b:v', maxKbps > 0 ? `${maxKbps}k` : '16M']
     case 'libopenh264':
       return ['-c:v', 'libopenh264', '-b:v', maxKbps > 0 ? `${maxKbps}k` : '16M']
+    // H.265: na mesma qualidade visual (SSIM medido), o QP fica 1 acima do H.264
+    case 'hevc_amf':
+      return maxKbps > 0
+        ? ['-c:v', 'hevc_amf', '-quality', 'quality', '-rc', 'vbr_peak', '-b:v', `${Math.round(maxKbps * 0.8)}k`, '-maxrate', `${maxKbps}k`, ...hvc1]
+        : ['-c:v', 'hevc_amf', '-quality', 'quality', '-rc', 'cqp', '-qp_i', `${q + 1}`, '-qp_p', `${q + 3}`, ...hvc1]
+    case 'hevc_nvenc':
+      return ['-c:v', 'hevc_nvenc', '-preset', 'p5', '-rc', 'vbr', '-cq', `${q + 2}`, '-b:v', '0', ...cap, ...hvc1]
+    case 'hevc_qsv':
+      return ['-c:v', 'hevc_qsv', '-preset', 'slow', '-global_quality', `${q + 2}`, ...cap, ...hvc1]
+    case 'libx265':
+      return ['-c:v', 'libx265', '-preset', 'medium', '-crf', `${q + 1}`, '-x265-params', 'log-level=error', ...cap, ...hvc1]
+    // AV1: QP vai de 0 a 255; 4× o valor do H.264 deu a mesma qualidade com ~30% menos arquivo (medido na RX 7600)
+    case 'av1_amf':
+      return maxKbps > 0
+        ? ['-c:v', 'av1_amf', '-quality', 'quality', '-rc', 'vbr_peak', '-b:v', `${Math.round(maxKbps * 0.8)}k`, '-maxrate', `${maxKbps}k`]
+        : ['-c:v', 'av1_amf', '-quality', 'quality', '-rc', 'cqp', '-qp_i', `${q * 4}`, '-qp_p', `${q * 4 + 8}`]
+    case 'av1_nvenc':
+      return ['-c:v', 'av1_nvenc', '-preset', 'p5', '-rc', 'vbr', '-cq', `${q + 4}`, '-b:v', '0', ...cap]
+    case 'av1_qsv':
+      return ['-c:v', 'av1_qsv', '-preset', 'slow', '-global_quality', `${q + 4}`, ...cap]
+    case 'libsvtav1':
+      return ['-c:v', 'libsvtav1', '-preset', '8', '-crf', `${q + 10}`, ...cap]
     default:
       return ['-c:v', 'libx264', '-preset', 'medium', '-crf', `${q}`, ...cap]
   }

@@ -1,12 +1,15 @@
 import { app, BrowserWindow, clipboard, dialog, ipcMain, shell } from 'electron'
-import { join } from 'path'
+import { basename, join } from 'path'
+import { readFileSync } from 'fs'
 import type { ExportSettings, JobRequest, Settings } from '../shared/types'
 import { getSettings, setSettings } from './settings'
 import { ensureBundledBinaries, getToolStatus } from './tools'
 import { cancelInfo, checkYtdlpUpdate, getComments, getHelp, getInfo, updateYtdlp } from './ytdlp'
-import { frcAmfWorks, listH264Encoders, listRifeGpus } from './convert'
-import { audioDuration, frame, peaks, probe, thumbs } from './media'
+import { frcAmfWorks, listH264Encoders, listRifeGpus, listVideoEncoders } from './convert'
+import { audioDuration, frame, peaks, probe, thumbs, trackFrames } from './media'
 import * as jobs from './jobs'
+import { checkAppUpdate, installAppUpdate } from './appupdate'
+import { cancelPack, installPack, listPacks, removePack } from './packs'
 import { cancelEstimate, cancelPreview, estimateExport, previewEnhance } from './export'
 import { setLang, t } from '../shared/i18n'
 
@@ -126,8 +129,8 @@ function registerIpc(): void {
   ipcMain.handle('ytdlp:check', () => checkYtdlpUpdate())
   ipcMain.handle('ffmpeg:encoders', () => listH264Encoders())
   ipcMain.handle('ffmpeg:capabilities', async () => {
-    const [encoders, frcAmf, gpus] = await Promise.all([listH264Encoders(), frcAmfWorks(), listRifeGpus()])
-    return { encoders, frcAmf, gpus }
+    const [encoders, allEncoders, frcAmf, gpus] = await Promise.all([listH264Encoders(), listVideoEncoders(), frcAmfWorks(), listRifeGpus()])
+    return { encoders, allEncoders, frcAmf, gpus }
   })
   ipcMain.handle('media:probe', async (_e, path: string) => {
     try {
@@ -140,6 +143,19 @@ function registerIpc(): void {
   ipcMain.handle('media:thumbs', (_e, path: string, times: number[], width: number) => thumbs(path, times, width))
   ipcMain.handle('media:peaks', (_e, path: string, buckets: number) => peaks(path, buckets))
   ipcMain.handle('media:audio', (_e, path: string) => audioDuration(path))
+  // Vários vídeos de uma vez, para preparar todos com as mesmas opções
+  ipcMain.handle('dialog:videos', async (e, current: string) => {
+    const win = BrowserWindow.fromWebContents(e.sender)!
+    const r = await dialog.showOpenDialog(win, {
+      defaultPath: current || undefined,
+      properties: ['openFile', 'multiSelections'],
+      filters: [
+        { name: t('Vídeos'), extensions: ['mp4', 'mkv', 'webm', 'mov', 'avi', 'm4v', 'ts', 'flv', 'wmv'] },
+        { name: t('Todos os arquivos'), extensions: ['*'] }
+      ]
+    })
+    return r.canceled ? [] : r.filePaths
+  })
   ipcMain.handle('dialog:video', async (e, current: string) => {
     const win = BrowserWindow.fromWebContents(e.sender)!
     const r = await dialog.showOpenDialog(win, {
@@ -168,11 +184,22 @@ function registerIpc(): void {
   ipcMain.handle('shell:external', (_e, url: string) => {
     if (/^https?:/.test(url)) void shell.openExternal(url)
   })
+  ipcMain.handle('app:update-check', () => checkAppUpdate())
+  ipcMain.handle('packs:list', () => listPacks())
+  ipcMain.handle('media:track-frames', (_e, path: string, start: number, end: number, step: number) => trackFrames(path, start, end, step))
+  // Modelos do MediaPipe (enquadramento inteligente) vão como bytes: a página não consegue buscar arquivos locais com fetch
+  ipcMain.handle('app:asset', (_e, name: string) => readFileSync(join(__dirname, '../renderer/mediapipe', basename(name))))
+  ipcMain.handle('packs:install', (e, id: string) => installPack(id, (p) => !e.sender.isDestroyed() && e.sender.send('packs:progress', id, p)))
+  ipcMain.handle('packs:cancel', (_e, id: string) => cancelPack(id))
+  ipcMain.handle('packs:remove', (_e, id: string) => removePack(id))
+  ipcMain.handle('app:update-install', (e, url: string, size: number) => installAppUpdate(url, size, (p) => !e.sender.isDestroyed() && e.sender.send('app:update-progress', p)))
   ipcMain.handle('clipboard:read', () => clipboard.readText())
   ipcMain.handle('clipboard:write', (_e, text: string) => clipboard.writeText(text))
 }
 
 app.whenReady().then(() => {
+  // Nome do app nos avisos do Windows (o instalador usa o mesmo id)
+  app.setAppUserModelId('dev.arthurdavi.ytdlpgui')
   setLang(getSettings().language)
   ensureBundledBinaries()
   jobs.loadHistory()

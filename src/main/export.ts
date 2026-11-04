@@ -2,12 +2,17 @@ import { app } from 'electron'
 import { spawn, type ChildProcess } from 'child_process'
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'fs'
 import { dirname, extname, join } from 'path'
-import { randomUUID } from 'crypto'
-import type { EditPlan, EnhancePreview, EnhanceSettings, ExportEstimate, ExportSettings, MediaInfo, MusicClip } from '../shared/types'
+import { createHash, randomUUID } from 'crypto'
+import type { EditPlan, EnhancePreview, EnhanceSettings, ExportEstimate, ExportSettings, MediaInfo, MusicClip, TrackPath } from '../shared/types'
 import { isV4Model } from '../shared/presets'
 import { audioFilters, chooseScale, cleanFilters, enhanceOf, lookFilters, nearestNoise, neededScale, withAiSize } from '../shared/enhance'
+import { hasOverlay, overlayOf, placeXY } from '../shared/overlay'
+import { buildAss, buildSrt, subtitlesOf, type Word } from '../shared/subtitles'
+import { transcribe } from './subtitles'
+import { trackAt, trackFor } from '../shared/track'
+import { mixStems, separateStems } from './separate'
 import { getToolStatus } from './tools'
-import { encoderArgs, listH264Encoders } from './convert'
+import { encoderArgs, listH264Encoders, listVideoEncoders } from './convert'
 import { audioDuration, capture, probe } from './media'
 import { t } from '../shared/i18n'
 import { clipSpan, dbToGain, eqFilters, eqIsFlat } from '../shared/audio'
@@ -177,10 +182,10 @@ interface StageOpts {
 }
 
 const INTER_QUALITY = 12
-const AUDIO_KEYS = ['audioDenoise', 'audioCut', 'audioLevel'] as const
+const AUDIO_KEYS = ['audioDenoise', 'audioCut', 'audioLevel', 'separate', 'voice', 'music'] as const
 
 /** Só a parte de imagem da melhoria (o som fica desligado) */
-const imageOnly = (e: EnhanceSettings): EnhanceSettings => ({ ...e, audioDenoise: 0, audioCut: false, audioLevel: 'off' })
+const imageOnly = (e: EnhanceSettings): EnhanceSettings => ({ ...e, audioDenoise: 0, audioCut: false, audioLevel: 'off', separate: false })
 /** Só a parte de som da melhoria */
 const audioOnly = (e: EnhanceSettings): EnhanceSettings => {
   const out = { ...enhanceOf({}) }
@@ -204,8 +209,8 @@ const afterStage = (s: ExportSettings, enhance: EnhanceSettings): ExportSettings
 
 const tempFile = (ext: string) => join(app.getPath('temp'), `ytdlp-gui-${randomUUID()}.${ext}`)
 
-/** Os codificadores H.264 das placas (AMD, NVIDIA, Intel) não passam de 4096 pixels; acima disso só o libx264 grava */
-const fitEncoder = (enc: string, W: number, H: number) => (Math.max(W, H) > 4096 && enc !== 'libx264' ? 'libx264' : enc)
+/** Os codificadores H.264 das placas não passam de 4096 pixels (H.265 e AV1 da placa AMD vão até 8K, testado); acima disso só o libx264 grava */
+const fitEncoder = (enc: string, W: number, H: number) => (Math.max(W, H) > 4096 && /^h264_/.test(enc) ? 'libx264' : enc)
 
 export async function exportVideo(
   input: string,
@@ -241,18 +246,41 @@ export async function exportVideo(
   const dur = (isFinite(end) ? end : info.duration) - start
   if (!(dur > 0)) return fail(t('O trecho escolhido está vazio (confira início e fim)'))
 
+  const e = enhanceOf(s)
+  // Bordas pretas: daqui em diante o preparo enxerga só a imagem de dentro, como se o vídeo fosse desse tamanho
+  let srcPre = ''
+  // O enquadramento inteligente mede posições no quadro inteiro; com bordas cortadas, elas são convertidas
+  const frame0 = { w: info.width, h: info.height, x: 0, y: 0 }
+  if (e.autoCrop) {
+    const b = await detectBorders(input, info)
+    if (b) {
+      hooks.log('[app] ' + t('Bordas pretas: {w}×{h} → {cw}×{ch}', { w: info.width, h: info.height, cw: b.w, ch: b.h }))
+      info = { ...info, width: b.w, height: b.h }
+      srcPre = `crop=${b.w}:${b.h}:${b.x}:${b.y}`
+      frame0.x = b.x
+      frame0.y = b.y
+    }
+  }
+  const track = trackFor(s, nameFrom ? null : input)
+
   const speed = s.speed > 0 ? s.speed : 1
   const outDur = dur / speed
   const srcFps = info.fps || 30
   const effFps = srcFps * speed
   const target = s.fps || srcFps
   const generate = target > effFps * 1.001
-  const geo = geometry(info, s)
+  let geo = geometry(info, s)
+  // Enquadramento inteligente: o corte anda junto com o rosto ou a pessoa
+  const tracked = track && geo.crop ? trackedCrop(track, geo.crop, info, frame0, start, dur) : null
+  if (tracked && geo.crop) {
+    geo = { ...geo, filter: geo.filter.replace(`crop=${geo.crop.w}:${geo.crop.h}:${geo.crop.x}:${geo.crop.y}`, tracked) }
+    hooks.log('[app] ' + t('Enquadramento inteligente: o corte segue {n} posições', { n: track!.points.length }))
+  }
   const encoders = await listH264Encoders()
-  const encoder = fitEncoder(s.encoder && encoders.includes(s.encoder) ? s.encoder : (encoders[0] ?? 'libx264'), geo.W, geo.H)
+  const allEncoders = await listVideoEncoders()
+  const encoder = fitEncoder(s.encoder && allEncoders.includes(s.encoder) ? s.encoder : (encoders[0] ?? 'libx264'), geo.W, geo.H)
   const output = outputTo ?? outputPath(nameFrom ?? input, s.suffix)
   const keepAudio = s.audio && info.hasAudio
-  const e = enhanceOf(s)
 
   // Ampliar com IA: a 1ª etapa limpa, amplia e enquadra o trecho num arquivo intermediário; a 2ª é o preparo de sempre sobre ele
   if (e.upscaler !== 'none' && !stage.intermediate) {
@@ -262,9 +290,12 @@ export async function exportVideo(
     // Com o RIFE depois, a 2ª etapa também é pesada
     const cut = generate && s.method === 'ai' ? 55 : 85
     try {
-      const a = await upscaleVideo(input, info, withAiSize(s, info), e, exe, { start, dur }, scaleHooks(hooks, 0, cut), tmp)
+      const sAi = withAiSize(s, info)
+      const cAi = geometry(info, sAi).crop
+      const tAi = track && cAi ? trackedCrop(track, cAi, info, frame0, start, dur) : null
+      const a = await upscaleVideo(input, { ...info, pre: srcPre, crop: tAi ?? undefined }, sAi, e, exe, { start, dur }, scaleHooks(hooks, 0, cut), tmp)
       if (!a.ok) return a
-      const rest = { ...e, upscaler: 'none' as const, deinterlace: false, denoise: 0, deblock: 0, deband: false }
+      const rest = { ...e, upscaler: 'none' as const, autoCrop: false, deinterlace: false, denoise: 0, deblock: 0, deband: false }
       return await exportVideo(tmp, afterStage(s, rest), scaleHooks(hooks, cut, 100), null, nameFrom ?? input, outputTo)
     } finally {
       rmSync(tmp, { force: true })
@@ -276,9 +307,10 @@ export async function exportVideo(
   if (e.stabilize === 'strong' && generate && s.method === 'ai') {
     const tmp = tempFile('mkv')
     try {
-      const a = await exportVideo(input, { ...s, fps: 0, speed: 1, enhance: imageOnly(e) }, scaleHooks(hooks, 0, 30), null, undefined, tmp, { intermediate: true })
+      const a = await exportVideo(input, { ...s, fps: 0, speed: 1, enhance: imageOnly(e), subtitles: undefined }, scaleHooks(hooks, 0, 30), null, undefined, tmp, { intermediate: true })
       if (!a.ok) return a
-      return await exportVideo(tmp, afterStage(s, audioOnly(e)), scaleHooks(hooks, 30, 100), null, nameFrom ?? input, outputTo)
+      // O texto e o logo já foram na 1ª etapa
+      return await exportVideo(tmp, { ...afterStage(s, audioOnly(e)), overlay: undefined }, scaleHooks(hooks, 30, 100), null, nameFrom ?? input, outputTo)
     } finally {
       rmSync(tmp, { force: true })
     }
@@ -286,6 +318,43 @@ export async function exportVideo(
 
   // Som: velocidade e depois a limpeza (no intermediário o som vai intacto)
   const af = [...(speed !== 1 ? [atempo(speed)] : []), ...(stage.intermediate ? [] : audioFilters(e))]
+
+  // Separar voz e música: o áudio do trecho vira dois arquivos e volta misturado com os volumes escolhidos
+  let audioIn: string | null = null
+  let voiceOnly: string | null = null
+  if (e.separate && keepAudio && !stage.intermediate) {
+    hooks.progress(0, t('Separando voz e música'))
+    const st = await separateStems(input, start, dur, (p) => hooks.progress(p, t('Separando voz e música')), hooks.canceled, hooks.log)
+    if (hooks.canceled()) return fail(t('Cancelado'))
+    if (typeof st === 'string') return fail(st)
+    voiceOnly = st.voice
+    audioIn = await mixStems(st, e.voice / 100, e.music / 100)
+    if (!audioIn) return fail(t('Falha ao misturar voz e música'))
+  }
+
+  // Legendas: o Whisper ouve o trecho (só a voz, se foi separada); a legenda é queimada no tamanho final, antes de mudar a velocidade
+  const sub = subtitlesOf(s)
+  let subFilter = ''
+  let words: Word[] = []
+  if (sub.on && !stage.intermediate && info.hasAudio) {
+    hooks.progress(0, t('Transcrevendo a fala (legendas)'))
+    const r = voiceOnly
+      ? await transcribe(voiceOnly, 0, dur, sub, (p) => hooks.progress(p, t('Transcrevendo a fala (legendas)')), hooks.spawned, hooks.log)
+      : await transcribe(input, start, dur, sub, (p) => hooks.progress(p, t('Transcrevendo a fala (legendas)')), hooks.spawned, hooks.log)
+    if (hooks.canceled()) return fail(t('Cancelado'))
+    if (typeof r === 'string') return fail(r)
+    words = r
+    if (sub.style !== 'none' && words.length) {
+      const ass = join(app.getPath('temp'), `ytdlp-gui-legenda-${randomUUID()}.ass`)
+      writeFileSync(ass, buildAss(words, sub, geo.W, geo.H), 'utf8')
+      tempAss.push(ass)
+      subFilter = `subtitles=filename=${ffPath(ass)}:fontsdir=${ffPath(join(process.env.WINDIR ?? 'C:\\Windows', 'Fonts'))}`
+    }
+  }
+  // .srt ao lado do vídeo final, nos tempos do vídeo final (já com a velocidade)
+  const saveSrt = () => {
+    if (sub.on && (sub.srt || sub.style === 'none') && words.length && !stage.intermediate) writeFileSync(output.replace(/\.[^.\\/]+$/, '') + '.srt', buildSrt(words, speed), 'utf8')
+  }
 
   hooks.log(
     `[app] ${info.width}x${info.height} ${srcFps.toFixed(3)} fps → ${geo.W}x${geo.H} ${target.toFixed(3)} fps` +
@@ -296,8 +365,10 @@ export async function exportVideo(
 
   if (generate && s.method === 'ai') {
     if (!tools.rife.models.length) return fail(t('RIFE não encontrado. Coloque a pasta rife ao lado do yt-dlp.exe ou indique o caminho em Configurações.'))
-    const vf = [...cleanFilters(e), geo.filter, ...lookFilters(e)].join(',')
-    return exportWithAi(input, info, s, { start, dur, speed, outDur, srcFps, target, geo, vf, af, encoder, output, keepAudio }, hooks)
+    const vf = withOverlay(s, geo.W, geo.H, [srcPre, ...cleanFilters(e), geo.filter, ...lookFilters(e)].filter(Boolean).join(','))
+    const r = await exportWithAi(input, info, s, { start, dur, speed, outDur, srcFps, target, geo, vf, subFilter, timed: !!tracked, af, audioIn, encoder, output, keepAudio }, hooks)
+    if (r.ok) saveSrt()
+    return r
   }
 
   // O frc_amf entrega a imagem 2 quadros atrasada (medido); o trim compensa e o trecho lido fica um pouco maior
@@ -309,7 +380,7 @@ export async function exportVideo(
   if (e.stabilize === 'strong') {
     workDir = join(app.getPath('temp'), `ytdlp-gui-vidstab-${randomUUID()}`)
     mkdirSync(workDir, { recursive: true })
-    const detect = [...(e.deinterlace ? ['bwdif=mode=send_frame:deint=all'] : []), 'vidstabdetect=shakiness=6:accuracy=12:result=transforms.trf'].join(',')
+    const detect = [srcPre, ...(e.deinterlace ? ['bwdif=mode=send_frame:deint=all'] : []), 'vidstabdetect=shakiness=6:accuracy=12:result=transforms.trf'].filter(Boolean).join(',')
     hooks.progress(0, t('Medindo o tremor da câmera'))
     const d = await runFfmpeg(['-hide_banner', '-y', '-ss', start.toFixed(3), '-t', inDur.toFixed(3), '-i', input, '-vf', detect, '-an', '-progress', 'pipe:1', '-nostats', '-f', 'null', '-'], inDur, hooks, (p) => hooks.progress(p * 0.3), workDir)
     if (hooks.canceled() || d.code !== 0) {
@@ -318,7 +389,8 @@ export async function exportVideo(
     }
   }
   const vidstab = 'vidstabtransform=input=transforms.trf:smoothing=20:optzoom=1:interpol=bicubic'
-  const vf = [...cleanFilters(e, vidstab), geo.filter, ...lookFilters(e)]
+  const vf = [withOverlay(s, geo.W, geo.H, [srcPre, ...cleanFilters(e, vidstab), geo.filter, ...lookFilters(e)].filter(Boolean).join(','))]
+  if (subFilter) vf.push(subFilter)
   if (speed !== 1) vf.push(`setpts=PTS/${speed}`)
   if (generate && s.method === 'gpu') {
     const delay = gpuDelay
@@ -334,9 +406,10 @@ export async function exportVideo(
     vf.push(`fps=${target}`)
   }
 
-  const args = ['-hide_banner', '-y', '-ss', start.toFixed(3), '-t', inDur.toFixed(3), '-i', input, '-vf', vf.join(','), '-map', '0:v:0']
+  // Com voz e música separadas, o áudio vem do arquivo misturado (já cortado no trecho)
+  const args = ['-hide_banner', '-y', '-ss', start.toFixed(3), '-t', inDur.toFixed(3), '-i', input, ...(audioIn ? ['-i', audioIn] : []), '-vf', vf.join(','), '-map', '0:v:0']
   if (keepAudio) {
-    args.push('-map', '0:a:0')
+    args.push('-map', audioIn ? '1:a:0' : '0:a:0')
     if (af.length) args.push('-af', af.join(','))
     args.push(...(stage.intermediate ? ['-c:a', 'flac'] : ['-c:a', 'aac', '-b:a', `${s.audioKbps}k`]))
   } else args.push('-an')
@@ -356,8 +429,15 @@ export async function exportVideo(
     if (existsSync(output)) rmSync(output, { force: true })
     return fail(r.tail.slice(-4).join('\n') || t('ffmpeg terminou com código {code}', { code: String(r.code) }))
   }
+  saveSrt()
   return { ok: true, output, error: null }
 }
+
+/** Arquivos .ass das legendas; apagados quando o app fecha */
+const tempAss: string[] = []
+app.on('will-quit', () => {
+  for (const f of tempAss) rmSync(f, { force: true })
+})
 
 const hasEdit = (e?: EditPlan | null): e is EditPlan => !!e && (e.segments.length > 0 || (e.musics?.length ?? 0) > 0 || (e.videoVolume ?? 1) !== 1 || !eqIsFlat(e.videoEq) || (e.speed ?? 1) !== 1)
 
@@ -535,11 +615,17 @@ interface AiPlan {
   geo: Geometry
   /** Filtros de imagem antes do RIFE (limpeza, tamanho, cor) */
   vf: string
+  /** Legenda queimada (filtro subtitles), nos tempos do trecho */
+  subFilter: string
+  /** O corte muda com o tempo (enquadramento inteligente) */
+  timed: boolean
   /** Filtros de som (velocidade e limpeza) */
   af: string[]
   encoder: string
   output: string
   keepAudio: boolean
+  /** Áudio já separado e misturado, cortado no trecho (no lugar do áudio do vídeo) */
+  audioIn: string | null
 }
 
 async function exportWithAi(input: string, info: MediaInfo, s: ExportSettings, p: AiPlan, hooks: ExportHooks): Promise<ExportResult> {
@@ -586,7 +672,15 @@ async function exportWithAi(input: string, info: MediaInfo, s: ExportSettings, p
       const want = last ? n : n + 1
       const ss = c === 0 ? p.start : p.start + (k0 - 0.5) / S
       const ex = await runFfmpeg(
-        ['-hide_banner', '-v', 'error', '-y', '-ss', ss.toFixed(4), '-i', input, '-vf', `${p.vf},fps=${S}`, '-frames:v', String(want), '-start_number', '1', join(inDir, '%08d.png')],
+        // Cada pedaço começa no tempo 0; a legenda e o corte que segue a pessoa precisam do tempo dentro do trecho,
+        // então o relógio é adiantado antes e volta depois
+        [
+          '-hide_banner', '-v', 'error', '-y', '-ss', ss.toFixed(4), '-i', input, '-vf',
+          p.subFilter || p.timed
+            ? `setpts=PTS+${(ss - p.start).toFixed(4)}/TB,${p.vf}${p.subFilter ? ',' + p.subFilter : ''},setpts=PTS-STARTPTS,fps=${S}`
+            : `${p.vf},fps=${S}`,
+          '-frames:v', String(want), '-start_number', '1', join(inDir, '%08d.png')
+        ],
         0,
         hooks
       )
@@ -639,7 +733,7 @@ async function exportWithAi(input: string, info: MediaInfo, s: ExportSettings, p
     const list = join(tmp, 'parts.txt')
     writeFileSync(list, parts.map((f) => `file '${f.replace(/'/g, "'\\''")}'`).join('\n'))
     const args = ['-hide_banner', '-y', '-f', 'concat', '-safe', '0', '-i', list]
-    if (p.keepAudio) args.push('-ss', p.start.toFixed(3), '-t', p.dur.toFixed(3), '-i', input)
+    if (p.keepAudio) args.push(...(p.audioIn ? ['-i', p.audioIn] : ['-ss', p.start.toFixed(3), '-t', p.dur.toFixed(3), '-i', input]))
     args.push('-map', '0:v:0', '-c:v', 'copy')
     if (p.keepAudio) {
       args.push('-map', '1:a:0')
@@ -658,6 +752,93 @@ async function exportWithAi(input: string, info: MediaInfo, s: ExportSettings, p
   }
 }
 
+/** Informações do vídeo; `pre` é o recorte das bordas pretas, que vem antes de todo o resto */
+interface SrcInfo extends MediaInfo {
+  pre?: string
+  /** Corte que muda com o tempo (enquadramento inteligente), no lugar do corte fixo */
+  crop?: string
+}
+
+/**
+ * Corte que anda: um arquivo de comandos (sendcmd) muda o x e o y do crop 15 vezes por segundo, seguindo as posições
+ * medidas na tela. `frame0` é o quadro inteiro de onde vieram as posições (com bordas cortadas, x/y é onde a imagem começa).
+ */
+function trackedCrop(track: TrackPath, c: { w: number; h: number }, info: MediaInfo, frame0: { w: number; h: number; x: number; y: number }, start: number, dur: number): string {
+  const even = (n: number) => Math.floor(n / 2) * 2
+  const at = (t: number) => {
+    const p = trackAt(track.points, t)!
+    const cx = (p.x / 100) * frame0.w - frame0.x
+    const cy = (p.y / 100) * frame0.h - frame0.y
+    return { x: even(Math.min(info.width - c.w, Math.max(0, cx - c.w / 2))), y: even(Math.min(info.height - c.h, Math.max(0, cy - c.h / 2))) }
+  }
+  const lines: string[] = []
+  let prev = ''
+  for (let rel = 1 / 15; rel < dur; rel += 1 / 15) {
+    const q = at(start + rel)
+    const cmd = `crop@track x ${q.x}, crop@track y ${q.y}`
+    if (cmd !== prev) lines.push(`${rel.toFixed(3)} ${cmd};`)
+    prev = cmd
+  }
+  const file = join(app.getPath('temp'), `ytdlp-gui-corte-${randomUUID()}.txt`)
+  writeFileSync(file, lines.join('\n') + '\n')
+  tempAss.push(file)
+  const p0 = at(start)
+  return `sendcmd=f=${ffPath(file)},crop@track=${c.w}:${c.h}:${p0.x}:${p0.y}`
+}
+
+/** Para um quadro só (prévia): a posição do corte vira a da pessoa naquele instante */
+function withTrackPosition(s: ExportSettings, path: string, info: MediaInfo, frame0: { w: number; h: number; x: number; y: number }, t: number): ExportSettings {
+  const track = trackFor(s, path)
+  const c = track ? geometry(info, s).crop : undefined
+  if (!track || !c) return s
+  const p = trackAt(track.points, t)!
+  const x = Math.min(info.width - c.w, Math.max(0, (p.x / 100) * frame0.w - frame0.x - c.w / 2))
+  const y = Math.min(info.height - c.h, Math.max(0, (p.y / 100) * frame0.h - frame0.y - c.h / 2))
+  return { ...s, position: info.width > c.w ? (x / (info.width - c.w)) * 100 : 50, positionY: info.height > c.h ? (y / (info.height - c.h)) * 100 : 50 }
+}
+
+const bordersCache = new Map<string, Promise<{ w: number; h: number; x: number; y: number } | null>>()
+
+/**
+ * Acha bordas pretas fixas (vídeo antigo 4:3 dentro de 16:9, print de tela, vídeo com tarja) com o `cropdetect`,
+ * olhando 2 s em três pontos do vídeo e juntando as áreas (a imagem que aparece em qualquer um deles fica).
+ * Devolve null se não houver borda que valha cortar.
+ */
+function detectBorders(input: string, info: MediaInfo): Promise<{ w: number; h: number; x: number; y: number } | null> {
+  const key = `${input}|${info.width}x${info.height}|${info.duration}`
+  const cached = bordersCache.get(key)
+  if (cached) return cached
+  const job = (async () => {
+    const ffmpeg = getToolStatus().ffmpeg.path
+    if (!ffmpeg) return null
+    let x1 = Infinity
+    let y1 = Infinity
+    let x2 = 0
+    let y2 = 0
+    for (const f of [0.2, 0.5, 0.8]) {
+      const at = Math.max(0, (info.duration || 0) * f - 1)
+      const r = await capture(ffmpeg, ['-hide_banner', '-ss', at.toFixed(2), '-t', '2', '-i', input, '-vf', 'cropdetect=limit=24:round=2:reset=0', '-an', '-f', 'null', '-'])
+      const all = [...r.err.matchAll(/crop=(\d+):(\d+):(\d+):(\d+)/g)]
+      const m = all[all.length - 1]
+      if (!m) continue
+      const [w, h, x, y] = m.slice(1).map(Number)
+      x1 = Math.min(x1, x)
+      y1 = Math.min(y1, y)
+      x2 = Math.max(x2, x + w)
+      y2 = Math.max(y2, y + h)
+    }
+    if (!isFinite(x1)) return null
+    const even = (n: number) => Math.floor(n / 2) * 2
+    const box = { x: even(x1), y: even(y1), w: even(x2 - even(x1)), h: even(y2 - even(y1)) }
+    // Borda pequena demais não vale o corte; área minúscula é cena escura, não borda
+    if (box.w >= info.width - 8 && box.h >= info.height - 8) return null
+    if (box.w < info.width * 0.3 || box.h < info.height * 0.3) return null
+    return box
+  })()
+  bordersCache.set(key, job)
+  return job
+}
+
 interface UpscalePlan {
   k: number
   /** Área do original que vai para a IA (o recorte, ou o quadro inteiro) */
@@ -672,7 +853,7 @@ interface UpscalePlan {
   label: string
 }
 
-function upscalePlan(info: MediaInfo, s: ExportSettings, e: EnhanceSettings, exe: string): UpscalePlan {
+function upscalePlan(info: SrcInfo, s: ExportSettings, e: EnhanceSettings, exe: string): UpscalePlan {
   const crop = geometry(info, s).crop
   const inW = crop?.w ?? info.width
   const inH = crop?.h ?? info.height
@@ -680,8 +861,9 @@ function upscalePlan(info: MediaInfo, s: ExportSettings, e: EnhanceSettings, exe
   const geoUp = geometry({ ...info, width: inW * k, height: inH * k }, { ...s, zoom: 1, position: 50, positionY: 50 })
   // Desentrelaçar vem antes do recorte; o resto da limpeza roda só na área recortada
   const pre = [
+    ...(info.pre ? [info.pre] : []),
     ...(e.deinterlace ? ['bwdif=mode=send_frame:deint=all'] : []),
-    ...(crop ? [`crop=${crop.w}:${crop.h}:${crop.x}:${crop.y}`] : []),
+    ...(crop ? [info.crop ?? `crop=${crop.w}:${crop.h}:${crop.x}:${crop.y}`] : []),
     ...cleanFilters({ ...e, deinterlace: false, stabilize: 'off', deflicker: false })
   ]
   const dir = dirname(exe)
@@ -709,7 +891,7 @@ const blendGraph = (p: UpscalePlan, blend: number, tail: string) =>
  * 1ª etapa do "ampliar com IA": separa os quadros do trecho (já recortados e limpos), amplia com o Real-ESRGAN ou o
  * Real-CUGAN em pedaços (como o RIFE), leva ao tamanho final e grava um MKV quase sem perda, com o som original em FLAC.
  */
-async function upscaleVideo(input: string, info: MediaInfo, s: ExportSettings, e: EnhanceSettings, exe: string, range: { start: number; dur: number }, hooks: ExportHooks, output: string): Promise<ExportResult> {
+async function upscaleVideo(input: string, info: SrcInfo, s: ExportSettings, e: EnhanceSettings, exe: string, range: { start: number; dur: number }, hooks: ExportHooks, output: string): Promise<ExportResult> {
   const S = info.fps || 30
   const p = upscalePlan(info, s, e, exe)
   const encoders = await listH264Encoders()
@@ -742,7 +924,9 @@ async function upscaleVideo(input: string, info: MediaInfo, s: ExportSettings, e
       const k0 = c * perChunk
       const n = Math.min(perChunk, totalFrames - k0)
       const ss = c === 0 ? range.start : range.start + (k0 - 0.5) / S
-      const ex = await runFfmpeg(['-hide_banner', '-v', 'error', '-y', '-ss', ss.toFixed(4), '-i', input, '-vf', `${p.pre ? p.pre + ',' : ''}fps=${S}`, '-frames:v', String(n), '-start_number', '1', join(inDir, '%08d.png')], 0, hooks)
+      // Com o corte que segue a pessoa, o relógio do pedaço é adiantado para o tempo dentro do trecho (e volta depois)
+      const vfIn = info.crop ? `setpts=PTS+${(ss - range.start).toFixed(4)}/TB,${p.pre},setpts=PTS-STARTPTS,fps=${S}` : `${p.pre ? p.pre + ',' : ''}fps=${S}`
+      const ex = await runFfmpeg(['-hide_banner', '-v', 'error', '-y', '-ss', ss.toFixed(4), '-i', input, '-vf', vfIn, '-frames:v', String(n), '-start_number', '1', join(inDir, '%08d.png')], 0, hooks)
       if (hooks.canceled()) return fail(t('Cancelado'))
       if (ex.code !== 0) return fail(ex.tail.slice(-4).join('\n') || t('Falha ao separar os quadros'))
       const nIn = readdirSync(inDir).length
@@ -802,9 +986,7 @@ export async function previewEnhance(input: string, s: ExportSettings, time: num
   } catch (err) {
     return bad((err as Error).message)
   }
-  s = withAiSize(s, info)
   const e = { ...enhanceOf(s), stabilize: 'off' as const, deflicker: false }
-  const geo = geometry(info, s)
   const fit = 'scale=960:960:force_original_aspect_ratio=decrease:force_divisible_by=2:flags=lanczos'
   const at = Math.max(0, Math.min(time, (info.duration || 1) - 0.05)).toFixed(3)
   const jpeg = async (args: string[]) => {
@@ -812,17 +994,33 @@ export async function previewEnhance(input: string, s: ExportSettings, time: num
     return r.code === 0 && r.out.length ? `data:image/jpeg;base64,${r.out.toString('base64')}` : null
   }
 
-  const before = await jpeg(['-ss', at, '-i', input, '-vf', `${geo.filter},${fit}`])
+  // "Antes": o vídeo como é, só com tamanho e enquadramento (o corte na posição da pessoa naquele instante)
+  const frame0 = { w: info.width, h: info.height, x: 0, y: 0 }
+  const sBefore = withTrackPosition(withAiSize(s, info), input, info, frame0, Number(at))
+  const before = await jpeg(['-ss', at, '-i', input, '-vf', `${geometry(info, sBefore).filter},${fit}`])
   if (!before) return bad(t('Não consegui ler o quadro'))
   const t0 = Date.now()
+  // "Depois": sem as bordas pretas (se for o caso), com tudo
+  let srcPre = ''
+  if (e.autoCrop) {
+    const b = await detectBorders(input, info)
+    if (b) {
+      info = { ...info, width: b.w, height: b.h }
+      srcPre = `crop=${b.w}:${b.h}:${b.x}:${b.y}`
+      frame0.x = b.x
+      frame0.y = b.y
+    }
+  }
+  s = withTrackPosition(withAiSize(s, info), input, info, frame0, Number(at))
+  const geo = geometry(info, s)
   if (e.upscaler === 'none') {
-    const after = await jpeg(['-ss', at, '-i', input, '-vf', [...cleanFilters(e), geo.filter, ...lookFilters(e), fit].join(',')])
+    const after = await jpeg(['-ss', at, '-i', input, '-vf', withOverlay(s, geo.W, geo.H, [srcPre, ...cleanFilters(e), geo.filter, ...lookFilters(e)].filter(Boolean).join(',')) + ',' + fit])
     return after ? { ok: true, error: null, before, after, seconds: (Date.now() - t0) / 1000 } : bad(t('Algum ajuste falhou neste quadro'))
   }
 
   const exe = tools.upscalers[e.upscaler]
   if (!exe) return bad(t('Programa de ampliar com IA não encontrado ({name}). Reinstale o app.', { name: e.upscaler === 'esrgan' ? 'Real-ESRGAN' : 'Real-CUGAN' }))
-  const p = upscalePlan(info, s, e, exe)
+  const p = upscalePlan({ ...info, pre: srcPre }, s, e, exe)
   const tmp = join(app.getPath('temp'), `yt-dlp-gui-previa-${randomUUID()}`)
   mkdirSync(tmp, { recursive: true })
   try {
@@ -840,7 +1038,7 @@ export async function previewEnhance(input: string, s: ExportSettings, time: num
     })
     previewChild = null
     if (ai.code !== 0 || !existsSync(up)) return bad(t('A IA de ampliar falhou: {error}', { error: ai.err.trim().split(/\r?\n/).slice(-2).join(' ') || t('código {code}', { code: String(ai.code) }) }))
-    const tail = [p.geoUp.filter, ...lookFilters(e), fit].join(',')
+    const tail = withOverlay(s, p.geoUp.W, p.geoUp.H, [p.geoUp.filter, ...lookFilters(e)].join(',')) + ',' + fit
     const blend = Math.max(0, Math.min(100, e.upBlend))
     const after = await jpeg(blend < 100 ? ['-i', up, '-i', src, '-filter_complex', blendGraph(p, blend, tail)] : ['-i', up, '-vf', tail])
     return after ? { ok: true, error: null, before, after, seconds: (Date.now() - t0) / 1000 } : bad(t('Algum ajuste falhou neste quadro'))
@@ -851,4 +1049,44 @@ export async function previewEnhance(input: string, s: ExportSettings, time: num
 
 export function cancelPreview(): void {
   if (previewChild?.pid != null && previewChild.exitCode == null) spawn('taskkill', ['/pid', String(previewChild.pid), '/T', '/F'], { windowsHide: true })
+}
+
+/** Caminho dentro de um filtro do ffmpeg: barras normais, ":" escapado e entre aspas simples */
+const ffPath = (p: string) => `'${p.replace(/\\/g, '/').replace(/:/g, '\\:').replace(/'/g, "'\\''")}'`
+
+/** Fonte para o texto: a primeira que existir no Windows */
+function overlayFont(): string | null {
+  const dir = join(process.env.WINDIR ?? 'C:\\Windows', 'Fonts')
+  for (const f of ['segoeuib.ttf', 'arialbd.ttf', 'arial.ttf']) if (existsSync(join(dir, f))) return join(dir, f)
+  return null
+}
+
+/**
+ * Põe o texto e o logo por cima do fim de uma cadeia de filtros que entrega o vídeo em W×H.
+ * O texto vai num arquivo (textfile), assim acentos, aspas e dois-pontos não precisam de escape.
+ */
+function withOverlay(s: ExportSettings, W: number, H: number, chain: string): string {
+  const o = overlayOf(s)
+  if (!hasOverlay(o)) return chain
+  const m = Math.round(Math.min(W, H) * 0.04)
+  let out = chain
+  if (o.logo && existsSync(o.logo)) {
+    const lw = Math.max(2, Math.round((W * Math.max(1, o.logoSize)) / 100 / 2) * 2)
+    const { x, y } = placeXY(o.logoPos, 'W', 'H', 'w', 'h', m)
+    const alpha = (Math.max(0, Math.min(100, o.logoOpacity)) / 100).toFixed(2)
+    out = `${out}[ovb];movie=${ffPath(o.logo)},scale=${lw}:-1,format=rgba,colorchannelmixer=aa=${alpha}[ovl];[ovb][ovl]overlay=x=${x}:y=${y}:format=auto`
+  }
+  const font = overlayFont()
+  if (o.text.trim() && font) {
+    const file = join(app.getPath('temp'), `ytdlp-gui-texto-${createHash('sha1').update(o.text).digest('hex').slice(0, 12)}.txt`)
+    if (!existsSync(file)) writeFileSync(file, o.text, 'utf8')
+    // Texto comprido: a letra diminui para caber na largura (Segoe UI Bold tem ~0,56 da altura por letra, em média)
+    const longest = Math.max(1, ...o.text.split(/\r?\n/).map((l) => [...l].length))
+    const fs = Math.max(8, Math.min(Math.round((H * Math.max(1, o.textSize)) / 100), Math.floor((W - 2 * m) / (longest * 0.56))))
+    const { x, y } = placeXY(o.textPos, 'w', 'h', 'text_w', 'text_h', m)
+    const color = '0x' + (/^#?[0-9a-f]{6}$/i.test(o.textColor) ? o.textColor.replace('#', '') : 'ffffff')
+    const look = o.textBox ? `:box=1:boxcolor=black@0.5:boxborderw=${Math.round(fs * 0.35)}` : `:borderw=${Math.max(2, Math.round(fs / 16))}:bordercolor=black@0.8`
+    out += `,drawtext=fontfile=${ffPath(font)}:textfile=${ffPath(file)}:expansion=none:fontsize=${fs}:fontcolor=${color}:x=${x}:y=${y}${look}`
+  }
+  return out
 }

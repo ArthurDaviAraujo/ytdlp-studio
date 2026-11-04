@@ -2,7 +2,8 @@ import { app } from 'electron'
 import { spawnSync } from 'child_process'
 import { copyFileSync, existsSync, mkdirSync, readdirSync } from 'fs'
 import { basename, dirname, join } from 'path'
-import type { Settings, ToolStatus } from '../shared/types'
+import type { Settings, ToolStatus, WhisperModel } from '../shared/types'
+import { WHISPER_FILES } from '../shared/packs'
 import { compareModels } from '../shared/presets'
 import { getSettings } from './settings'
 
@@ -14,7 +15,7 @@ function which(name: string): string | null {
 }
 
 /** Pasta gravável com cópias dos binários (no app instalado, Program Files não deixa o yt-dlp -U atualizar). */
-const userBin = () => join(app.getPath('userData'), 'bin')
+export const userBin = () => join(app.getPath('userData'), 'bin')
 
 export function ensureBundledBinaries(): void {
   if (!app.isPackaged) return
@@ -27,7 +28,7 @@ export function ensureBundledBinaries(): void {
   }
 }
 
-function searchDirs(): string[] {
+export function searchDirs(): string[] {
   const bundled = [userBin(), join(process.resourcesPath ?? '', 'bin')]
   // Em desenvolvimento o projeto fica em D:\yt-dlp; os programas ficam em D:\yt-dlp\programas
   const parents: string[] = []
@@ -111,6 +112,12 @@ function resolveJsRuntime(s: Settings): ToolStatus['jsRuntime'] {
   return null
 }
 
+/** O primeiro caminho (relativo à pasta de programas) que existe */
+export const firstIn = (rel: string): string | null => searchDirs().map((d) => join(d, rel)).find((p) => existsSync(p)) ?? null
+
+/** Caminho de um modelo do Whisper, se já foi baixado */
+export const whisperModelPath = (m: WhisperModel) => firstIn(`whisper/models/${WHISPER_FILES[m]}`)
+
 let cached: ToolStatus | null = null
 
 export function getToolStatus(refresh = false): ToolStatus {
@@ -131,7 +138,12 @@ export function getToolStatus(refresh = false): ToolStatus {
     upscalers: {
       esrgan: searchDirs().map((d) => join(d, 'realesrgan', 'realesrgan-ncnn-vulkan.exe')).find((p) => existsSync(p)) ?? null,
       cugan: searchDirs().map((d) => join(d, 'realcugan', 'realcugan-ncnn-vulkan.exe')).find((p) => existsSync(p)) ?? null
-    }
+    },
+    whisper: {
+      exe: firstIn('whisper/whisper-cli.exe'),
+      models: (Object.keys(WHISPER_FILES) as WhisperModel[]).filter((m) => firstIn(`whisper/models/${WHISPER_FILES[m]}`))
+    },
+    separator: firstIn('separar/Kim_Vocal_2.onnx')
   }
   return cached
 }

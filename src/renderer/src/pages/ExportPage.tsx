@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Clapperboard, FileVideo, FolderOpen, Gauge, Music, RefreshCw, Scissors, Wand2, X } from 'lucide-react'
+import { Clapperboard, FileVideo, Files, FolderOpen, Gauge, Music, RefreshCw, Scissors, Wand2, X } from 'lucide-react'
 import type { EditPlan, ExportSettings, Job, MediaInfo } from '../../../shared/types'
 import { BUILTIN_PRESETS } from '../../../shared/presets'
 import type { AppContext } from '../App'
@@ -91,6 +91,28 @@ export default function ExportPage({ ctx, jobs, source, setSource, edit, clearEd
     if (p) setSource(p)
   }
 
+  // Lote: os mesmos ajustes em vários vídeos; cada um vira um item na fila (sem trecho, que é de um vídeo só)
+  const runMany = async () => {
+    const files = await window.api.pickVideos(source ?? ctx.settings.downloadDir)
+    if (!files.length) return
+    const s = { ...settings, start: '', end: '' }
+    for (const f of files) {
+      await window.api.addJob({
+        kind: 'export',
+        url: '',
+        title: baseName(f),
+        thumbnail: null,
+        label: `${t(s.name)} · ${t('lote')}${s.width ? ` · ${s.width}×${s.height}` : ''}${s.fps ? ` · ${s.fps} fps` : ''}${s.speed !== 1 ? ` · ${s.speed}x` : ''}`,
+        args: [],
+        convert: null,
+        exportSettings: s,
+        input: f,
+        edit: null
+      })
+    }
+    ctx.notify(t('{n} vídeo(s) adicionados à fila', { n: files.length }), { label: t('Ver downloads'), run: () => ctx.goTo('queue') })
+  }
+
   const run = async () => {
     if (!source || !info) return
     const W = settings.width || info.width
@@ -123,6 +145,9 @@ export default function ExportPage({ ctx, jobs, source, setSource, edit, clearEd
               <h1 className="text-xl font-semibold">{t('Preparar vídeo')}</h1>
               <p className="text-sm text-muted">{t('Ajuste tamanho, enquadramento, FPS e velocidade de um vídeo do seu PC para postar.')}</p>
             </div>
+            <Button variant="ghost" icon={<Files className="h-4 w-4" />} onClick={runMany} title={t('Escolha vários vídeos: todos são preparados com as opções do painel ao lado, um depois do outro.')}>
+              {t('Preparar vários')}
+            </Button>
             <Button icon={<FolderOpen className="h-4 w-4" />} onClick={pick}>
               {t('Escolher vídeo do PC')}
             </Button>
@@ -243,6 +268,7 @@ export default function ExportPage({ ctx, jobs, source, setSource, edit, clearEd
             onDeletePreset={ctx.deletePreset}
             inputPath={source}
             upscalers={ctx.tools.upscalers}
+            tools={ctx.tools}
             onEstimate={setEstimate}
           />
         </div>

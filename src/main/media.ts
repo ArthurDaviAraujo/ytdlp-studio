@@ -63,6 +63,28 @@ export async function frame(path: string, time: number, width = 640, keyframe = 
   return `data:image/jpeg;base64,${r.out.toString('base64')}`
 }
 
+/**
+ * Quadros pequenos (JPEG) de [start, end] a cada `step` segundos, para o enquadramento inteligente achar o rosto ou a pessoa.
+ * Um ffmpeg só, que entrega os JPEGs um atrás do outro; eles são separados pelas marcas de início (FFD8) e fim (FFD9).
+ */
+export async function trackFrames(path: string, start: number, end: number, step: number, width = 384): Promise<{ t: number; data: string }[]> {
+  const ffmpeg = getToolStatus().ffmpeg.path
+  if (!ffmpeg || !(end > start)) return []
+  const r = await capture(ffmpeg, ['-hide_banner', '-v', 'error', '-ss', start.toFixed(3), '-t', (end - start).toFixed(3), '-i', path, '-vf', `fps=1/${step},scale=${width}:-2`, '-f', 'image2pipe', '-c:v', 'mjpeg', '-q:v', '6', 'pipe:1'])
+  const out: { t: number; data: string }[] = []
+  const b = r.out
+  let s = -1
+  for (let i = 0; i < b.length - 1; i++) {
+    if (b[i] === 0xff && b[i + 1] === 0xd8 && s < 0) s = i
+    else if (b[i] === 0xff && b[i + 1] === 0xd9 && s >= 0) {
+      out.push({ t: start + out.length * step, data: `data:image/jpeg;base64,${b.subarray(s, i + 2).toString('base64')}` })
+      s = -1
+      i++
+    }
+  }
+  return out
+}
+
 /** Miniaturas para a linha do tempo do editor; busca cada quadro direto (rápido mesmo em vídeos longos), 4 por vez. */
 export async function thumbs(path: string, times: number[], width = 160): Promise<(string | null)[]> {
   const out: (string | null)[] = new Array(times.length).fill(null)

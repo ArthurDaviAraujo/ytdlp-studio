@@ -3,6 +3,7 @@ import { Move, Pause, Play, Volume2, VolumeX } from 'lucide-react'
 import type { ExportSettings } from '../../../shared/types'
 import { duration as fmt, parseTime } from '../lib/format'
 import { t } from '../../../shared/i18n'
+import { trackAt, trackFor } from '../../../shared/track'
 
 /** Caminho do Windows → endereço file:// que o <video> do Electron consegue abrir */
 export const fileUrl = (p: string) => encodeURI('file:///' + p.replace(/\\/g, '/')).replace(/#/g, '%23').replace(/\?/g, '%3F')
@@ -76,8 +77,11 @@ export default function FramingPreview({
   // Tamanho do recorte em frações do original
   const fw = crop || same ? Math.min(1, (wider ? dstAR / srcAR : 1) / zoom) : 1
   const fh = crop || same ? Math.min(1, (wider ? 1 : srcAR / dstAR) / zoom) : 1
-  const px = (s.position ?? 50) / 100
-  const py = (s.positionY ?? 50) / 100
+  // Com o enquadramento inteligente, o corte fica onde a pessoa está naquele instante da prévia
+  const tracked = trackFor(s, video)
+  const tp = tracked ? trackAt(tracked.points, now) : null
+  const px = tp && fw < 1 ? Math.min(1, Math.max(0, (tp.x / 100 - fw / 2) / (1 - fw))) : (s.position ?? 50) / 100
+  const py = tp && fh < 1 ? Math.min(1, Math.max(0, (tp.y / 100 - fh / 2) / (1 - fh))) : (s.positionY ?? 50) / 100
   const boxH = Math.round(Math.min(720, Math.max(300, winH * 0.56)))
   const boxW = Math.round(boxH * dstAR)
   const canPlay = !!video && !failed

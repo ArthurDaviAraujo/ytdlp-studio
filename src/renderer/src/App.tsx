@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { CircleArrowUp, Download, ListVideo, Scissors, Settings as SettingsIcon, TriangleAlert, Wand2 } from 'lucide-react'
-import type { Capabilities, EditPlan, ExportSettings, Job, Settings, ToolStatus, UpdateCheck } from '../../shared/types'
+import type { AppUpdateCheck, Capabilities, EditPlan, ExportSettings, Job, Settings, ToolStatus, UpdateCheck } from '../../shared/types'
 import DownloadPage from './pages/DownloadPage'
 import EditorPage from './pages/EditorPage'
 import ExportPage from './pages/ExportPage'
@@ -55,6 +55,8 @@ function useJobs(page: Page) {
 
 export default function App() {
   const [page, setPage] = useState<Page>('download')
+  // Clique no aviso do Windows abre a página pedida
+  useEffect(() => window.api.onGoto((p) => setPage(p as Page)), [])
   const [settings, setSettings] = useState<Settings | null>(null)
   const [tools, setTools] = useState<ToolStatus | null>(null)
   const [toast, setToast] = useState<{ msg: string; action?: { label: string; run: () => void } } | null>(null)
@@ -64,6 +66,9 @@ export default function App() {
   const [exportEdit, setExportEdit] = useState<EditPlan | null>(null)
   const [update, setUpdate] = useState<UpdateCheck | null>(null)
   const [updating, setUpdating] = useState(false)
+  // Versão nova do próprio app: baixa o instalador com progresso e abre
+  const [appUpdate, setAppUpdate] = useState<AppUpdateCheck | null>(null)
+  const [appProgress, setAppProgress] = useState<number | null>(null)
   const { jobs, drop } = useJobs(page)
 
   // Ao abrir, pergunta ao GitHub se há yt-dlp mais novo (uma vez por abertura)
@@ -71,7 +76,18 @@ export default function App() {
   useEffect(() => {
     if (!checkEnabled) return
     void window.api.checkYtdlpUpdate().then((r) => r.newer && setUpdate(r))
+    void window.api.checkAppUpdate().then((r) => r.newer && r.url && setAppUpdate(r))
   }, [checkEnabled])
+  useEffect(() => window.api.onAppUpdateProgress(setAppProgress), [])
+  // Uma IA baixada agora: relê os programas para a opção aparecer sem reabrir o app
+  useEffect(() => {
+    const h = async () => {
+      setTools(await window.api.getToolStatus(true))
+      setCaps(await window.api.getCapabilities())
+    }
+    window.addEventListener('tools-changed', h)
+    return () => window.removeEventListener('tools-changed', h)
+  }, [])
 
   useEffect(() => {
     void window.api.getSettings().then(setSettings)
@@ -162,6 +178,54 @@ export default function App() {
           ))}
         </nav>
         <div className="mt-auto space-y-2 p-3">
+          {appUpdate && (
+            <div className="rounded-lg border border-ok/30 bg-ok/10 p-3 text-xs text-ok">
+              <div className="flex items-start gap-2">
+                <CircleArrowUp className="mt-0.5 h-4 w-4 shrink-0" />
+                <div>
+                  yt-dlp GUI {appUpdate.latest}{t(' disponível')}
+                  <div className="text-muted">
+                    {t('você tem ')}
+                    {appUpdate.current}
+                    {appUpdate.size ? ` · ${Math.round(appUpdate.size / 1048576)} MB` : ''}
+                  </div>
+                </div>
+              </div>
+              {appProgress != null && (
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-ok/15">
+                  <div className="h-full bg-ok transition-[width]" style={{ width: `${appProgress}%` }} />
+                </div>
+              )}
+              <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1">
+                <button
+                  disabled={appProgress != null}
+                  className="rounded-md bg-ok/20 px-2 py-1 font-semibold hover:bg-ok/30 disabled:opacity-60"
+                  onClick={async () => {
+                    if (!appUpdate.url) return
+                    setAppProgress(0)
+                    const r = await window.api.installAppUpdate(appUpdate.url, appUpdate.size)
+                    if (!r.ok) {
+                      setAppProgress(null)
+                      setToast({ msg: t('Não consegui baixar a atualização: {error}', { error: r.error ?? '' }) })
+                    }
+                  }}
+                  title={t('Baixa o instalador novo e abre. O app fecha sozinho para a instalação trocar os arquivos.')}
+                >
+                  {appProgress == null ? t('Atualizar') : appProgress >= 100 ? t('Abrindo o instalador…') : t('Baixando {n}%', { n: Math.floor(appProgress) })}
+                </button>
+                {appUpdate.page && (
+                  <button className="px-1 py-1 text-muted hover:text-text" onClick={() => window.api.openExternal(appUpdate.page!)}>
+                    {t('Novidades')}
+                  </button>
+                )}
+                {appProgress == null && (
+                  <button className="px-1 py-1 text-muted hover:text-text" onClick={() => setAppUpdate(null)}>
+                    {t('Depois')}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
           {update && (
             <div className="rounded-lg border border-info/30 bg-info/10 p-3 text-xs text-info">
               <div className="flex items-start gap-2">

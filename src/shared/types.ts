@@ -13,6 +13,8 @@ export interface Settings {
   concurrency: number
   exportPresets: SavedPreset[]
   checkUpdates: boolean
+  /** Aviso do Windows quando um download ou preparo termina */
+  notifyDone: boolean
   language: Lang
 }
 
@@ -57,6 +59,71 @@ export interface ExportSettings {
   audioKbps: number
   /** Melhorar imagem e som; ausente em configurações antigas (= tudo desligado) */
   enhance?: EnhanceSettings
+  /** Texto e logo por cima do vídeo; ausente = nada */
+  overlay?: OverlaySettings
+  /** Legendas automáticas (Whisper); ausente = desligadas */
+  subtitles?: SubtitleSettings
+  /** Enquadramento inteligente: o corte segue o rosto ou a pessoa (posições medidas na tela) */
+  track?: TrackPath | null
+}
+
+/** Modelos do Whisper: base (rápido), small (melhor), turbo (o melhor, mais lento) */
+export type WhisperModel = 'base' | 'small' | 'turbo'
+
+export interface SubtitleSettings {
+  on: boolean
+  model: WhisperModel
+  /** 'auto' ou o código do idioma falado (pt, en, es…) */
+  language: string
+  /** Traduz para o inglês (o Whisper só traduz para o inglês) */
+  translate: boolean
+  /** tiktok: poucas palavras por vez com a palavra falada em destaque; classic: frase inteira; none: só o arquivo .srt */
+  style: 'tiktok' | 'classic' | 'none'
+  position: 'bottom' | 'middle' | 'top'
+  /** Altura da letra em % da altura do vídeo */
+  size: number
+  /** Cor do destaque (tiktok) */
+  color: string
+  upper: boolean
+  /** Palavras por vez no estilo tiktok */
+  words: number
+  /** Salva também um .srt ao lado do vídeo */
+  srt: boolean
+}
+
+/** Posição do centro do corte ao longo do tempo (0–100 da largura e da altura do vídeo original) */
+export interface TrackPath {
+  /** Para qual vídeo e trecho as posições valem */
+  key: string
+  points: { t: number; x: number; y: number }[]
+}
+
+/** Pacote que o app baixa sob demanda (IAs e modelos) */
+export interface PackInfo {
+  id: string
+  name: string
+  size: number
+  installed: boolean
+}
+
+/** Posição na tela: t/m/b (topo, meio, base) + l/c/r (esquerda, centro, direita) */
+export type ScreenPos = 'tl' | 'tc' | 'tr' | 'ml' | 'mc' | 'mr' | 'bl' | 'bc' | 'br'
+
+export interface OverlaySettings {
+  text: string
+  textPos: ScreenPos
+  /** Altura da letra em % da altura do vídeo */
+  textSize: number
+  textColor: string
+  /** Faixa escura atrás do texto (senão, contorno preto) */
+  textBox: boolean
+  /** Caminho da imagem do logo ('' = sem logo) */
+  logo: string
+  logoPos: ScreenPos
+  /** Largura do logo em % da largura do vídeo */
+  logoSize: number
+  /** 0–100 */
+  logoOpacity: number
 }
 
 /** Ampliar com IA: Real-ESRGAN (vídeo real e anime) ou Real-CUGAN (anime) */
@@ -96,6 +163,8 @@ export interface EnhanceSettings {
   warmth: number
   autoLight: boolean
   stabilize: 'off' | 'light' | 'strong'
+  /** Corta sozinho as bordas pretas fixas (vídeo antigo, print de tela) */
+  autoCrop: boolean
   deflicker: boolean
   /** 0–10: granulado de filme */
   grain: number
@@ -105,6 +174,11 @@ export interface EnhanceSettings {
   audioCut: boolean
   /** normalize: volume padrão das redes (−14 LUFS); even: também iguala partes baixas e altas */
   audioLevel: 'off' | 'normalize' | 'even'
+  /** Separa voz e música com IA para mudar o volume de cada uma */
+  separate: boolean
+  /** Volume da voz e da música depois de separar, em % (100 = como estava) */
+  voice: number
+  music: number
 }
 
 export interface SavedPreset {
@@ -126,6 +200,8 @@ export interface MediaInfo {
 
 export interface Capabilities {
   encoders: string[]
+  /** H.264, H.265 e AV1 que funcionam nesta máquina (para o preparo) */
+  allEncoders: string[]
   frcAmf: boolean
   /** Placas de vídeo que o RIFE enxerga pela Vulkan (AMD, NVIDIA ou Intel) */
   gpus: { id: number; name: string }[]
@@ -145,6 +221,10 @@ export interface ToolStatus {
   rife: { path: string | null; models: string[]; info: Record<string, RifeModelInfo> }
   /** Programas de ampliar com IA (pasta realesrgan e realcugan) */
   upscalers: { esrgan: string | null; cugan: string | null }
+  /** whisper-cli.exe (legendas) e os modelos que já estão no PC */
+  whisper: { exe: string | null; models: WhisperModel[] }
+  /** Modelo de separar voz e música (ONNX), se já foi baixado */
+  separator: string | null
 }
 
 /** Antes e depois de um quadro, para a prévia da melhoria */
@@ -344,6 +424,19 @@ export interface UpdateCheck {
   current: string | null
   latest: string | null
   newer: boolean
+  error: string | null
+}
+
+/** Versão nova do próprio app no GitHub */
+export interface AppUpdateCheck {
+  current: string
+  latest: string | null
+  newer: boolean
+  /** Link do instalador (.exe) da última versão */
+  url: string | null
+  size: number
+  /** Página da versão (novidades) */
+  page: string | null
   error: string | null
 }
 

@@ -1,7 +1,7 @@
 {
   "name": "yt-dlp-gui",
   "productName": "yt-dlp GUI",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Interface gráfica para o yt-dlp",
   "main": "./out/main/index.js",
   "author": "Arthur Davi",
@@ -21,7 +21,11 @@
       "output": "release"
     },
     "files": [
-      "out/**"
+      "out/**",
+      "!node_modules/onnxruntime-node/bin/napi-v6/darwin/**",
+      "!node_modules/onnxruntime-node/bin/napi-v6/linux/**",
+      "!node_modules/onnxruntime-node/bin/napi-v6/win32/arm64/**",
+      "!node_modules/onnxruntime-node/script/**"
     ],
     "extraResources": [
       {
@@ -39,22 +43,6 @@
       {
         "from": "../programas/deno.exe",
         "to": "bin/deno.exe"
-      },
-      {
-        "from": "../programas/rife",
-        "to": "bin/rife"
-      },
-      {
-        "from": "../programas/rife-comunidade",
-        "to": "bin/rife-comunidade"
-      },
-      {
-        "from": "../programas/realesrgan",
-        "to": "bin/realesrgan"
-      },
-      {
-        "from": "../programas/realcugan",
-        "to": "bin/realcugan"
       }
     ],
     "win": {
@@ -63,7 +51,10 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
-    }
+    },
+    "asarUnpack": [
+      "node_modules/onnxruntime-node/bin/**"
+    ]
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
@@ -76,10 +67,12 @@
     "electron-vite": "^6.0.0",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
-    "vite": "^8.3.5"
+    "vite": "^8.3.5",
+    "@mediapipe/tasks-vision": "^1.2.2"
   },
   "dependencies": {
     "lucide-react": "^1.65.0",
+    "onnxruntime-node": "^1.31.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   }

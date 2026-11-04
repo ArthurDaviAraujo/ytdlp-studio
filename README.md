@@ -23,7 +23,15 @@ Em desenvolvimento o app procura `yt-dlp.exe`, `ffmpeg.exe`, `ffprobe.exe` e as 
 npm run dist
 ```
 
-Sai em `release\yt-dlp GUI Setup <versão>.exe`. O instalador leva junto o `yt-dlp.exe`, o `ffmpeg.exe`, o `ffprobe.exe` e as pastas `rife`, `rife-comunidade`, `realesrgan` e `realcugan` da pasta `D:\yt-dlp\programas`. Depois de gerado, ele pode ser movido para `D:\yt-dlp\instalador`. Na primeira execução eles são copiados para `%APPDATA%\yt-dlp GUI\bin`, onde o yt-dlp consegue se atualizar. O app instalado usa essa cópia; o modo de desenvolvimento usa sempre os programas de `D:\yt-dlp\programas`.
+Sai em `release\yt-dlp GUI Setup <versão>.exe`. O instalador leva junto o `yt-dlp.exe`, o `ffmpeg.exe`, o `ffprobe.exe` e o `deno.exe` da pasta `D:\yt-dlp\programas`.
+
+As IAs não vão no instalador, e por isso ele tem cerca de 330 MB e não 1,1 GB. O app baixa cada uma só quando alguém vai usar, e também dá para baixar em Configurações → IAs e modelos. A lista fica em `src/shared/packs.ts`:
+
+- RIFE, Real-ESRGAN, Real-CUGAN e o programa do Whisper vêm da release [`ia-pacotes`](https://github.com/ArthurDaviAraujo/ytdlp-studio/releases/tag/ia-pacotes) deste repositório. São arquivos .zip com a licença de cada projeto.
+- Os modelos do Whisper vêm do Hugging Face.
+- O modelo de separar voz vem do repositório de modelos do UVR.
+
+Tudo é salvo em `%APPDATA%\yt-dlp GUI\bin`. Depois de gerado, ele pode ser movido para `D:\yt-dlp\instalador`. Na primeira execução eles são copiados para `%APPDATA%\yt-dlp GUI\bin`, onde o yt-dlp consegue se atualizar. O app instalado usa essa cópia; o modo de desenvolvimento usa sempre os programas de `D:\yt-dlp\programas`.
 
 ## O que tem
 
@@ -38,6 +46,8 @@ Sai em `release\yt-dlp GUI Setup <versão>.exe`. O instalador leva junto o `yt-d
 - **Todas as opções do yt-dlp**: lidas do `yt-dlp --help` da versão instalada (250 na 2026.10.21), com busca, valores e opções repetíveis, mais as predefinições `-t` e um campo de argumentos livres.
 - **Idioma**: inglês (padrão) ou português, em Configurações. A troca vale na hora. Os textos ficam em `src/shared/i18n.ts` e `src/shared/i18n-en.ts`: a chave é o texto em português.
 - **Fila de downloads**: progresso, velocidade, tempo restante, item da playlist, log, cancelar, tentar de novo, abrir o arquivo ou a pasta. Também tem histórico e uma prévia do comando.
+- **Aviso do Windows** quando um download ou preparo termina com o app em segundo plano. Clicar no aviso abre a lista. Dá para desligar em Configurações.
+- **Atualização do app**: o app consulta a última versão no GitHub ao abrir. Se houver uma nova, mostra um aviso no menu lateral, baixa o instalador com progresso e abre a instalação com um clique.
 - **Converter para H.264** depois de baixar, usando a GPU (AMD/NVIDIA/Intel) ou a CPU. Só aparecem os codificadores que funcionam na máquina.
 - **FPS máximo** na hora de baixar (`-S fps:N`).
 - **Qualidade máxima**: um botão no painel de download e outro no Preparar vídeo, que deixam tudo no máximo com um clique e desligam voltando ao que estava antes. No download, o app pega o maior tamanho e FPS do site, o melhor áudio e não converte nada. No Preparar, usa imagem em 15, `libx264`, sem limite de taxa e áudio AAC 320 kbps. Um aviso lembra que o arquivo e o tempo podem crescer muito.
@@ -66,6 +76,25 @@ Sai em `release\yt-dlp GUI Setup <versão>.exe`. O instalador leva junto o `yt-d
     - **Antes e depois**: um quadro do vídeo com uma divisória que se arrasta. Sem IA, a comparação se atualiza sozinha; com IA, só pelo botão (2 a 3 s por quadro).
     - **Resumo**: acima do botão Preparar, aparece o que vai sair (tamanho, IA, FPS, ajustes e tempo estimado).
   - O painel fica em abas (Formato, Imagem, Movimento / FPS e Arquivo). Uma aba com algo ligado ganha um ponto.
+  - **Legendas automáticas** (aba Formato): o [Whisper](https://github.com/ggml-org/whisper.cpp) ouve a fala no seu PC e marca o tempo de cada palavra.
+    - **Estilos:** TikTok (poucas palavras grandes, com a palavra falada em destaque, cor e quantidade escolhidas por você), frase (como no cinema) ou só o arquivo `.srt`.
+    - **Opções:** três modelos (rápido, melhor e máximo), idioma automático ou escolhido, tradução para o inglês, posição, tamanho e maiúsculas.
+    - **Legenda queimada:** vai no vídeo com o filtro `subtitles` (libass), já no tamanho final.
+    - **Tempo certo desde o início:** o silêncio do começo é medido e descontado, para a primeira palavra não aparecer antes da hora.
+  - **Seguir rosto ou pessoa** (aba Formato, enquadramento "Cortar"): o [MediaPipe](https://github.com/google-ai-edge/mediapipe) acha o rosto (ou a pessoa) em até 400 quadros do trecho.
+    - O caminho é suavizado como o de uma câmera.
+    - O corte do ffmpeg muda de posição 15 vezes por segundo (`sendcmd` + `crop`).
+    - A prévia toca seguindo a pessoa, e o resultado funciona também com a IA de ampliar, com o RIFE e com as bordas pretas cortadas.
+  - **Separar voz e música** (aba Arquivo → Som): o modelo Kim Vocal 2 (UVR MDX-Net) roda no ONNX Runtime, na placa de vídeo, pelo DirectML.
+    - Dá para mudar o volume da voz e o da música e do fundo. Há atalhos para "Só a voz", "Sem voz (karaokê)", "Música mais baixa" e "Voz mais alta".
+    - O STFT e o ISTFT (n_fft 7680, pelo algoritmo de Bluestein) são feitos em TypeScript.
+    - Com legendas ligadas, o Whisper ouve só a voz separada.
+  - **Texto e logo** por cima do vídeo (aba Formato):
+    - **Texto:** posição, tamanho (diminui sozinho se não couber), cor e faixa escura ou contorno.
+    - **Logo:** imagem PNG ou JPG, com posição, tamanho e opacidade.
+  - **Cortar bordas pretas sozinho** (`cropdetect` em três pontos do vídeo).
+  - **H.265 e AV1** pela placa (`hevc_amf`, `av1_amf`, NVIDIA e Intel) ou pelo processador (`libx265`). O arquivo fica de 20% a 50% menor com a mesma qualidade; o H.264 continua no "Automático".
+  - **Preparar vários:** escolha vários vídeos e todos entram na fila com as mesmas opções.
   - **Estimar o tempo:** antes de exportar, o app faz a exportação de verdade em dois trechos curtos (1 s e 3 s). Assim ele separa o custo fixo do custo por segundo e calcula quanto o vídeo inteiro vai levar no seu PC. Também compara os métodos de quadros novos já medidos, para ver se vale a pena. A medição pode ser cancelada.
   - **Preparar depois de baixar**, no painel de download, faz tudo num pedido só: baixa e, em seguida, gera o arquivo preparado.
   - O arquivo novo sai ao lado do original (`nome.tiktok.mp4`), sem apagar nada.
@@ -88,6 +117,9 @@ Sai em `release\yt-dlp GUI Setup <versão>.exe`. O instalador leva junto o `yt-d
 - **Ampliar com IA**, também pela Vulkan:
   - [Real-ESRGAN ncnn-vulkan](https://github.com/xinntao/Real-ESRGAN) 20220424 (BSD-3-Clause), em `D:\yt-dlp\programas\realesrgan`, com os modelos `realesr-animevideov3` (2x, 3x e 4x), `realesrgan-x4plus` e `realesrgan-x4plus-anime`;
   - [Real-CUGAN ncnn-vulkan](https://github.com/nihui/realcugan-ncnn-vulkan) 20220728 (MIT), em `D:\yt-dlp\programas\realcugan`, com os modelos `se`, `pro` e `nose`.
+- **Legendas**: [whisper.cpp](https://github.com/ggml-org/whisper.cpp) b5454 (MIT), em `D:\yt-dlp\programas\whisper`, com os modelos em `whisper\models`. São eles `ggml-base.bin`, `ggml-small.bin` e `ggml-large-v3-turbo-q5_0.bin`.
+- **Seguir rosto ou pessoa**: `@mediapipe/tasks-vision` 1.2.2 (Apache-2.0). O WASM e os modelos `blaze_face_short_range` e `efficientdet_lite0` ficam em `src/renderer/public/mediapipe`.
+- **Separar voz e música**: `onnxruntime-node` 1.31.1 (MIT, com DirectML) e o modelo `Kim_Vocal_2.onnx` (UVR), em `D:\yt-dlp\programas\separar`. No instalador vai só o binário do Windows x64 do ONNX Runtime, fora do asar.
 - **ffprobe.exe**: necessário para "embutir miniatura", para a página Preparar vídeo e para algumas correções. Ele precisa estar na mesma pasta do `ffmpeg.exe` que o app usa (o caminho aparece em Configurações), porque o yt-dlp só o procura ali.
 
 ## Estrutura

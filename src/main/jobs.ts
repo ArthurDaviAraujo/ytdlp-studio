@@ -1,4 +1,4 @@
-import { app, type WebContents } from 'electron'
+import { app, BrowserWindow, Notification, type WebContents } from 'electron'
 import { spawn, type ChildProcess } from 'child_process'
 import { appendFileSync, copyFileSync, existsSync, readFileSync, unlinkSync, writeFileSync } from 'fs'
 import { join } from 'path'
@@ -438,7 +438,29 @@ function finish(job: Job, rt: Runtime, code: number, error: string | null): void
     job.error = job.error ?? t('O yt-dlp terminou com código {code}', { code })
   }
   touch(job, true)
+  notifyDone(job)
   pump()
+}
+
+/** Aviso do Windows quando termina, só se o app não estiver na frente (quem está olhando já vê) */
+function notifyDone(job: Job): void {
+  if (job.status === 'canceled' || !getSettings().notifyDone || !Notification.isSupported()) return
+  const win = BrowserWindow.getAllWindows().find((w) => !w.getParentWindow())
+  if (win?.isFocused()) return
+  const ok = job.status === 'done'
+  const what = job.kind === 'download' ? t('Download') : t('Preparo')
+  const n = new Notification({
+    title: ok ? t('{what} concluído', { what }) : t('{what} com erro', { what }),
+    body: job.title || job.label,
+    silent: false
+  })
+  n.on('click', () => {
+    if (!win || win.isDestroyed()) return
+    if (win.isMinimized()) win.restore()
+    win.focus()
+    win.webContents.send('app:goto', 'queue')
+  })
+  n.show()
 }
 
 export function cancelJob(id: string): void {

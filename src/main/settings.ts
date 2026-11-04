@@ -17,6 +17,7 @@ function defaults(): Settings {
     concurrency: 2,
     exportPresets: [],
     checkUpdates: true,
+    notifyDone: true,
     language: 'en'
   }
 }

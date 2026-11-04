@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Eye, Sparkles } from 'lucide-react'
 import type { ExportSettings } from '../../../shared/types'
 import { enhanceOf, hasImageEnhance } from '../../../shared/enhance'
+import { hasOverlay, overlayOf } from '../../../shared/overlay'
 import { Button, Spinner, cx } from './ui'
 import { t } from '../../../shared/i18n'
 
@@ -12,7 +13,7 @@ import { t } from '../../../shared/i18n'
 export default function BeforeAfter({ input, settings, time }: { input: string; settings: ExportSettings; time: number }) {
   const e = enhanceOf(settings)
   const usesAi = e.upscaler !== 'none'
-  const active = hasImageEnhance(e)
+  const active = hasImageEnhance(e) || hasOverlay(overlayOf(settings))
   const [shot, setShot] = useState<{ before: string; after: string; seconds: number; key: string } | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -20,7 +21,7 @@ export default function BeforeAfter({ input, settings, time }: { input: string; 
   const box = useRef<HTMLDivElement>(null)
   const dragging = useRef(false)
   // Tudo o que muda a imagem (o som e o FPS não entram)
-  const key = JSON.stringify([input, time, settings.width, settings.height, settings.framing, settings.position, settings.positionY, settings.zoom, settings.blur, settings.barColor, settings.aiGpu, e, undefined])
+  const key = JSON.stringify([input, time, settings.width, settings.height, settings.framing, settings.position, settings.positionY, settings.zoom, settings.blur, settings.barColor, settings.aiGpu, e, settings.overlay, settings.track?.points.length])
   const stale = shot != null && shot.key !== key
   const seq = useRef(0)
 

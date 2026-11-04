@@ -1,3 +1,4 @@
+import PacksCard from '../components/PacksCard'
 import { useState, type ReactNode } from 'react'
 import { CircleCheck, CircleX, FolderOpen, RefreshCw, TriangleAlert } from 'lucide-react'
 import type { JsRuntimeChoice } from '../../../shared/types'
@@ -129,7 +130,7 @@ export default function SettingsPage({ ctx }: { ctx: AppContext }) {
                   checked={s.checkUpdates}
                   onChange={(v) => ctx.saveSettings({ checkUpdates: v })}
                   label={t('Avisar quando sair versão nova')}
-                  hint={t('Ao abrir o app, consulta o GitHub do yt-dlp e mostra um aviso no menu lateral.')}
+                  hint={t('Ao abrir o app, consulta o GitHub do yt-dlp e do próprio app e mostra um aviso no menu lateral. A versão nova do app é baixada e instalada com um clique.')}
                 />
               </div>
               <Button
@@ -224,6 +225,8 @@ export default function SettingsPage({ ctx }: { ctx: AppContext }) {
           </div>
         </Card>
 
+        <PacksCard />
+
         <Card title={t('Criação de quadros (FPS)')}>
           <div className="space-y-4">
             <Status ok={!!ctx.caps?.frcAmf}>
@@ -306,6 +309,12 @@ export default function SettingsPage({ ctx }: { ctx: AppContext }) {
                 </Select>
               </Field>
             </div>
+            <Toggle
+              checked={s.notifyDone ?? true}
+              onChange={(v) => ctx.saveSettings({ notifyDone: v })}
+              label={t('Avisar no Windows quando terminar')}
+              hint={t('Mostra um aviso no canto da tela quando um download ou preparo acaba, se o app não estiver na frente. Clicar no aviso abre a lista de downloads.')}
+            />
           </div>
         </Card>
       </div>

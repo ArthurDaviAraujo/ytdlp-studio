@@ -361,6 +361,7 @@ export default function OptionsPanel({
                 onSavePreset={ctx.savePreset}
                 onDeletePreset={ctx.deletePreset}
                 upscalers={ctx.tools.upscalers}
+                tools={ctx.tools}
               />
             )}
           </Group>
