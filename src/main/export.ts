@@ -3,11 +3,12 @@ import { spawn, type ChildProcess } from 'child_process'
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'fs'
 import { dirname, extname, join } from 'path'
 import { randomUUID } from 'crypto'
-import type { EditPlan, ExportEstimate, ExportSettings, MediaInfo, MusicClip } from '../shared/types'
+import type { EditPlan, EnhancePreview, EnhanceSettings, ExportEstimate, ExportSettings, MediaInfo, MusicClip } from '../shared/types'
 import { isV4Model } from '../shared/presets'
+import { audioFilters, chooseScale, cleanFilters, enhanceOf, lookFilters, nearestNoise, neededScale, withAiSize } from '../shared/enhance'
 import { getToolStatus } from './tools'
 import { encoderArgs, listH264Encoders } from './convert'
-import { audioDuration, probe } from './media'
+import { audioDuration, capture, probe } from './media'
 import { t } from '../shared/i18n'
 import { clipSpan, dbToGain, eqFilters, eqIsFlat } from '../shared/audio'
 
@@ -49,6 +50,8 @@ interface Geometry {
   W: number
   H: number
   filter: string
+  /** Só no enquadramento "cortar": a área do vídeo original que fica */
+  crop?: { w: number; h: number; x: number; y: number }
 }
 
 function geometry(info: MediaInfo, s: ExportSettings): Geometry {
@@ -65,7 +68,7 @@ function geometry(info: MediaInfo, s: ExportSettings): Geometry {
     const ch = Math.min(info.height, even((srcAR > dstAR ? info.height : info.width / dstAR) / zoom))
     const x = Math.round(((info.width - cw) * (s.position ?? 50)) / 100)
     const y = Math.round(((info.height - ch) * (s.positionY ?? 50)) / 100)
-    return { W, H, filter: `crop=${cw}:${ch}:${x}:${y},scale=${W}:${H}:flags=lanczos,setsar=1` }
+    return { W, H, filter: `crop=${cw}:${ch}:${x}:${y},scale=${W}:${H}:flags=lanczos,setsar=1`, crop: { w: cw, h: ch, x, y } }
   }
 
   const fit = `scale=${W}:${H}:force_original_aspect_ratio=decrease:force_divisible_by=2:flags=lanczos`
@@ -99,11 +102,11 @@ function atempo(speed: number): string {
   return parts.join(',')
 }
 
-function runFfmpeg(args: string[], totalSec: number, hooks: ExportHooks, onPercent?: (p: number) => void): Promise<{ code: number | null; tail: string[] }> {
+function runFfmpeg(args: string[], totalSec: number, hooks: ExportHooks, onPercent?: (p: number) => void, cwd?: string): Promise<{ code: number | null; tail: string[] }> {
   const ffmpeg = getToolStatus().ffmpeg.path!
   return new Promise((resolve) => {
     hooks.log(`> ffmpeg ${args.join(' ')}`)
-    const child = spawn(ffmpeg, args, { windowsHide: true })
+    const child = spawn(ffmpeg, args, { windowsHide: true, cwd })
     hooks.spawned(child)
     const tail: string[] = []
     let buf = ''
@@ -132,7 +135,7 @@ function runFfmpeg(args: string[], totalSec: number, hooks: ExportHooks, onPerce
   })
 }
 
-function runRife(exe: string, args: string[], outDir: string, expected: number, hooks: ExportHooks, onPercent: (p: number) => void): Promise<{ code: number | null; tail: string[] }> {
+function runRife(exe: string, args: string[], outDir: string, expected: number, hooks: ExportHooks, onPercent: (p: number) => void, tag = 'rife'): Promise<{ code: number | null; tail: string[] }> {
   return new Promise((resolve) => {
     hooks.log(`> ${exe} ${args.join(' ')}`)
     const child = spawn(exe, args, { windowsHide: true, cwd: dirname(exe) })
@@ -140,10 +143,11 @@ function runRife(exe: string, args: string[], outDir: string, expected: number, 
     const tail: string[] = []
     const onData = (d: Buffer) => {
       for (const l of d.toString('utf8').split(/\r?\n/)) {
-        if (!l.trim() || / done$/.test(l)) continue
+        // O RIFE escreve "… done" e o Real-ESRGAN/CUGAN escreve "12,34%" para cada quadro
+        if (!l.trim() || / done$/.test(l) || /^\d+[.,]\d+%$/.test(l.trim())) continue
         tail.push(l)
         if (tail.length > 40) tail.shift()
-        hooks.log(`[rife] ${l}`)
+        hooks.log(`[${tag}] ${l}`)
       }
     }
     child.stdout.on('data', onData)
@@ -167,7 +171,51 @@ function runRife(exe: string, args: string[], outDir: string, expected: number, 
 
 const fail = (error: string): ExportResult => ({ ok: false, output: null, error })
 
-export async function exportVideo(input: string, s: ExportSettings, hooks: ExportHooks, edit?: EditPlan | null, nameFrom?: string, outputTo?: string): Promise<ExportResult> {
+/** Arquivo intermediário entre duas etapas: MKV, imagem quase sem perda e som sem perda (FLAC) */
+interface StageOpts {
+  intermediate?: boolean
+}
+
+const INTER_QUALITY = 12
+const AUDIO_KEYS = ['audioDenoise', 'audioCut', 'audioLevel'] as const
+
+/** Só a parte de imagem da melhoria (o som fica desligado) */
+const imageOnly = (e: EnhanceSettings): EnhanceSettings => ({ ...e, audioDenoise: 0, audioCut: false, audioLevel: 'off' })
+/** Só a parte de som da melhoria */
+const audioOnly = (e: EnhanceSettings): EnhanceSettings => {
+  const out = { ...enhanceOf({}) }
+  for (const k of AUDIO_KEYS) (out as Record<string, unknown>)[k] = e[k]
+  return out
+}
+
+/** Depois de uma etapa que já aplicou tamanho, enquadramento e trecho, o resto do preparo roda sobre o arquivo intermediário */
+const afterStage = (s: ExportSettings, enhance: EnhanceSettings): ExportSettings => ({
+  ...s,
+  width: 0,
+  height: 0,
+  framing: 'crop',
+  zoom: 1,
+  position: 50,
+  positionY: 50,
+  start: '',
+  end: '',
+  enhance
+})
+
+const tempFile = (ext: string) => join(app.getPath('temp'), `ytdlp-gui-${randomUUID()}.${ext}`)
+
+/** Os codificadores H.264 das placas (AMD, NVIDIA, Intel) não passam de 4096 pixels; acima disso só o libx264 grava */
+const fitEncoder = (enc: string, W: number, H: number) => (Math.max(W, H) > 4096 && enc !== 'libx264' ? 'libx264' : enc)
+
+export async function exportVideo(
+  input: string,
+  s: ExportSettings,
+  hooks: ExportHooks,
+  edit?: EditPlan | null,
+  nameFrom?: string,
+  outputTo?: string,
+  stage: StageOpts = {}
+): Promise<ExportResult> {
   if (hasEdit(edit)) {
     // Cortes e música primeiro, em alta qualidade num arquivo temporário; o arquivo final sai com o nome do original
     const tmp = join(app.getPath('temp'), `ytdlp-gui-${randomUUID()}.mp4`)
@@ -201,9 +249,43 @@ export async function exportVideo(input: string, s: ExportSettings, hooks: Expor
   const generate = target > effFps * 1.001
   const geo = geometry(info, s)
   const encoders = await listH264Encoders()
-  const encoder = s.encoder && encoders.includes(s.encoder) ? s.encoder : (encoders[0] ?? 'libx264')
+  const encoder = fitEncoder(s.encoder && encoders.includes(s.encoder) ? s.encoder : (encoders[0] ?? 'libx264'), geo.W, geo.H)
   const output = outputTo ?? outputPath(nameFrom ?? input, s.suffix)
   const keepAudio = s.audio && info.hasAudio
+  const e = enhanceOf(s)
+
+  // Ampliar com IA: a 1ª etapa limpa, amplia e enquadra o trecho num arquivo intermediário; a 2ª é o preparo de sempre sobre ele
+  if (e.upscaler !== 'none' && !stage.intermediate) {
+    const exe = tools.upscalers[e.upscaler]
+    if (!exe) return fail(t('Programa de ampliar com IA não encontrado ({name}). Reinstale o app.', { name: e.upscaler === 'esrgan' ? 'Real-ESRGAN' : 'Real-CUGAN' }))
+    const tmp = tempFile('mkv')
+    // Com o RIFE depois, a 2ª etapa também é pesada
+    const cut = generate && s.method === 'ai' ? 55 : 85
+    try {
+      const a = await upscaleVideo(input, info, withAiSize(s, info), e, exe, { start, dur }, scaleHooks(hooks, 0, cut), tmp)
+      if (!a.ok) return a
+      const rest = { ...e, upscaler: 'none' as const, deinterlace: false, denoise: 0, deblock: 0, deband: false }
+      return await exportVideo(tmp, afterStage(s, rest), scaleHooks(hooks, cut, 100), null, nameFrom ?? input, outputTo)
+    } finally {
+      rmSync(tmp, { force: true })
+    }
+  }
+
+  // Estabilização forte + RIFE: o vidstab precisa do vídeo inteiro numa passada, e o RIFE trabalha em pedaços;
+  // então a imagem é estabilizada (e ajustada) antes, num arquivo intermediário
+  if (e.stabilize === 'strong' && generate && s.method === 'ai') {
+    const tmp = tempFile('mkv')
+    try {
+      const a = await exportVideo(input, { ...s, fps: 0, speed: 1, enhance: imageOnly(e) }, scaleHooks(hooks, 0, 30), null, undefined, tmp, { intermediate: true })
+      if (!a.ok) return a
+      return await exportVideo(tmp, afterStage(s, audioOnly(e)), scaleHooks(hooks, 30, 100), null, nameFrom ?? input, outputTo)
+    } finally {
+      rmSync(tmp, { force: true })
+    }
+  }
+
+  // Som: velocidade e depois a limpeza (no intermediário o som vai intacto)
+  const af = [...(speed !== 1 ? [atempo(speed)] : []), ...(stage.intermediate ? [] : audioFilters(e))]
 
   hooks.log(
     `[app] ${info.width}x${info.height} ${srcFps.toFixed(3)} fps → ${geo.W}x${geo.H} ${target.toFixed(3)} fps` +
@@ -214,16 +296,32 @@ export async function exportVideo(input: string, s: ExportSettings, hooks: Expor
 
   if (generate && s.method === 'ai') {
     if (!tools.rife.models.length) return fail(t('RIFE não encontrado. Coloque a pasta rife ao lado do yt-dlp.exe ou indique o caminho em Configurações.'))
-    return exportWithAi(input, info, s, { start, dur, speed, outDur, srcFps, target, geo, encoder, output, keepAudio }, hooks)
+    const vf = [...cleanFilters(e), geo.filter, ...lookFilters(e)].join(',')
+    return exportWithAi(input, info, s, { start, dur, speed, outDur, srcFps, target, geo, vf, af, encoder, output, keepAudio }, hooks)
   }
 
-  const vf = [geo.filter]
+  // O frc_amf entrega a imagem 2 quadros atrasada (medido); o trim compensa e o trecho lido fica um pouco maior
+  const gpuDelay = generate && s.method === 'gpu' ? 2 / effFps : 0
+  const inDur = gpuDelay ? Math.min(dur + gpuDelay * speed, (info.duration || Infinity) - start) : dur
+
+  // Estabilização forte: 1ª passada do vidstab mede o tremor do trecho e grava num arquivo na pasta temporária
+  let workDir: string | undefined
+  if (e.stabilize === 'strong') {
+    workDir = join(app.getPath('temp'), `ytdlp-gui-vidstab-${randomUUID()}`)
+    mkdirSync(workDir, { recursive: true })
+    const detect = [...(e.deinterlace ? ['bwdif=mode=send_frame:deint=all'] : []), 'vidstabdetect=shakiness=6:accuracy=12:result=transforms.trf'].join(',')
+    hooks.progress(0, t('Medindo o tremor da câmera'))
+    const d = await runFfmpeg(['-hide_banner', '-y', '-ss', start.toFixed(3), '-t', inDur.toFixed(3), '-i', input, '-vf', detect, '-an', '-progress', 'pipe:1', '-nostats', '-f', 'null', '-'], inDur, hooks, (p) => hooks.progress(p * 0.3), workDir)
+    if (hooks.canceled() || d.code !== 0) {
+      rmSync(workDir, { recursive: true, force: true })
+      return fail(hooks.canceled() ? t('Cancelado') : d.tail.slice(-4).join('\n') || t('Falha ao medir o tremor'))
+    }
+  }
+  const vidstab = 'vidstabtransform=input=transforms.trf:smoothing=20:optzoom=1:interpol=bicubic'
+  const vf = [...cleanFilters(e, vidstab), geo.filter, ...lookFilters(e)]
   if (speed !== 1) vf.push(`setpts=PTS/${speed}`)
-  let inDur = dur
   if (generate && s.method === 'gpu') {
-    // O frc_amf entrega a imagem 2 quadros atrasada (medido); o trim compensa e o trecho lido fica um pouco maior
-    const delay = 2 / effFps
-    inDur = Math.min(dur + delay * speed, (info.duration || Infinity) - start)
+    const delay = gpuDelay
     vf.push(
       `format=yuv420p,frc_amf=profile=${geo.W * geo.H > 2560 * 1440 ? 'super' : 'high'},hwdownload,format=nv12,` +
         `trim=start=${delay.toFixed(6)},setpts=PTS-STARTPTS`
@@ -239,13 +337,17 @@ export async function exportVideo(input: string, s: ExportSettings, hooks: Expor
   const args = ['-hide_banner', '-y', '-ss', start.toFixed(3), '-t', inDur.toFixed(3), '-i', input, '-vf', vf.join(','), '-map', '0:v:0']
   if (keepAudio) {
     args.push('-map', '0:a:0')
-    if (speed !== 1) args.push('-af', atempo(speed))
-    args.push('-c:a', 'aac', '-b:a', `${s.audioKbps}k`)
+    if (af.length) args.push('-af', af.join(','))
+    args.push(...(stage.intermediate ? ['-c:a', 'flac'] : ['-c:a', 'aac', '-b:a', `${s.audioKbps}k`]))
   } else args.push('-an')
-  args.push(...encoderArgs(encoder, s.quality, s.maxBitrate), '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-t', outDur.toFixed(3), '-progress', 'pipe:1', '-nostats', output)
+  if (stage.intermediate) args.push(...encoderArgs(fitEncoder(encoders[0] ?? 'libx264', geo.W, geo.H), INTER_QUALITY), '-pix_fmt', 'yuv420p')
+  else args.push(...encoderArgs(encoder, s.quality, s.maxBitrate), '-pix_fmt', 'yuv420p', '-movflags', '+faststart')
+  args.push('-t', outDur.toFixed(3), '-progress', 'pipe:1', '-nostats', output)
 
-  hooks.progress(0, t('Preparando: {name}', { name: t(s.name) }))
-  const r = await runFfmpeg(args, outDur, hooks, (p) => hooks.progress(p))
+  const from = workDir ? 30 : 0
+  hooks.progress(from, workDir ? t('Estabilizando e preparando') : t('Preparando: {name}', { name: t(s.name) }))
+  const r = await runFfmpeg(args, outDur, hooks, (p) => hooks.progress(from + (p * (100 - from)) / 100), workDir)
+  if (workDir) rmSync(workDir, { recursive: true, force: true })
   if (hooks.canceled()) {
     if (existsSync(output)) rmSync(output, { force: true })
     return fail(t('Cancelado'))
@@ -431,6 +533,10 @@ interface AiPlan {
   srcFps: number
   target: number
   geo: Geometry
+  /** Filtros de imagem antes do RIFE (limpeza, tamanho, cor) */
+  vf: string
+  /** Filtros de som (velocidade e limpeza) */
+  af: string[]
   encoder: string
   output: string
   keepAudio: boolean
@@ -480,7 +586,7 @@ async function exportWithAi(input: string, info: MediaInfo, s: ExportSettings, p
       const want = last ? n : n + 1
       const ss = c === 0 ? p.start : p.start + (k0 - 0.5) / S
       const ex = await runFfmpeg(
-        ['-hide_banner', '-v', 'error', '-y', '-ss', ss.toFixed(4), '-i', input, '-vf', `${p.geo.filter},fps=${S}`, '-frames:v', String(want), '-start_number', '1', join(inDir, '%08d.png')],
+        ['-hide_banner', '-v', 'error', '-y', '-ss', ss.toFixed(4), '-i', input, '-vf', `${p.vf},fps=${S}`, '-frames:v', String(want), '-start_number', '1', join(inDir, '%08d.png')],
         0,
         hooks
       )
@@ -537,7 +643,7 @@ async function exportWithAi(input: string, info: MediaInfo, s: ExportSettings, p
     args.push('-map', '0:v:0', '-c:v', 'copy')
     if (p.keepAudio) {
       args.push('-map', '1:a:0')
-      if (p.speed !== 1) args.push('-af', atempo(p.speed))
+      if (p.af.length) args.push('-af', p.af.join(','))
       args.push('-c:a', 'aac', '-b:a', `${s.audioKbps}k`)
     }
     args.push('-movflags', '+faststart', '-t', p.outDur.toFixed(3), p.output)
@@ -550,4 +656,199 @@ async function exportWithAi(input: string, info: MediaInfo, s: ExportSettings, p
     rmSync(tmp, { recursive: true, force: true })
     if (hooks.canceled() && existsSync(p.output)) rmSync(p.output, { force: true })
   }
+}
+
+interface UpscalePlan {
+  k: number
+  /** Área do original que vai para a IA (o recorte, ou o quadro inteiro) */
+  crop: Geometry['crop']
+  inW: number
+  inH: number
+  /** Do tamanho ampliado até o tamanho final, com o enquadramento */
+  geoUp: Geometry
+  /** Filtros antes da IA: desentrelaçar, recortar e limpar */
+  pre: string
+  modelArgs: string[]
+  label: string
+}
+
+function upscalePlan(info: MediaInfo, s: ExportSettings, e: EnhanceSettings, exe: string): UpscalePlan {
+  const crop = geometry(info, s).crop
+  const inW = crop?.w ?? info.width
+  const inH = crop?.h ?? info.height
+  const k = chooseScale(e, neededScale(info, s))
+  const geoUp = geometry({ ...info, width: inW * k, height: inH * k }, { ...s, zoom: 1, position: 50, positionY: 50 })
+  // Desentrelaçar vem antes do recorte; o resto da limpeza roda só na área recortada
+  const pre = [
+    ...(e.deinterlace ? ['bwdif=mode=send_frame:deint=all'] : []),
+    ...(crop ? [`crop=${crop.w}:${crop.h}:${crop.x}:${crop.y}`] : []),
+    ...cleanFilters({ ...e, deinterlace: false, stabilize: 'off', deflicker: false })
+  ]
+  const dir = dirname(exe)
+  let modelArgs: string[]
+  let label: string
+  if (e.upscaler === 'esrgan') {
+    modelArgs = ['-m', join(dir, 'models'), '-n', e.esrganModel, '-s', String(k)]
+    label = `Real-ESRGAN ${e.esrganModel} ${k}x`
+  } else {
+    const noise = nearestNoise(e.cuganModel, k, e.cuganNoise)
+    modelArgs = ['-m', join(dir, `models-${e.cuganModel}`), '-s', String(k), '-n', String(noise)]
+    label = `Real-CUGAN ${e.cuganModel} ${k}x`
+  }
+  if (e.upTta) modelArgs.push('-x')
+  if (e.upTile > 0) modelArgs.push('-t', String(e.upTile))
+  if (s.aiGpu >= 0) modelArgs.push('-g', String(s.aiGpu))
+  return { k, crop, inW, inH, geoUp, pre: pre.join(','), modelArgs, label }
+}
+
+/** Mistura a imagem da IA ([0]) com o original ampliado ([1]); 100% = só IA */
+const blendGraph = (p: UpscalePlan, blend: number, tail: string) =>
+  `[1:v]scale=${p.inW * p.k}:${p.inH * p.k}:flags=lanczos,format=rgb24[o];[0:v]format=rgb24[a];[a][o]blend=all_mode=normal:all_opacity=${(blend / 100).toFixed(3)},${tail}`
+
+/**
+ * 1ª etapa do "ampliar com IA": separa os quadros do trecho (já recortados e limpos), amplia com o Real-ESRGAN ou o
+ * Real-CUGAN em pedaços (como o RIFE), leva ao tamanho final e grava um MKV quase sem perda, com o som original em FLAC.
+ */
+async function upscaleVideo(input: string, info: MediaInfo, s: ExportSettings, e: EnhanceSettings, exe: string, range: { start: number; dur: number }, hooks: ExportHooks, output: string): Promise<ExportResult> {
+  const S = info.fps || 30
+  const p = upscalePlan(info, s, e, exe)
+  const encoders = await listH264Encoders()
+  const enc = fitEncoder(encoders[0] ?? 'libx264', p.geoUp.W, p.geoUp.H)
+  const blend = Math.max(0, Math.min(100, e.upBlend))
+
+  const tmp = join(app.getPath('temp'), `yt-dlp-gui-ia-${randomUUID()}`)
+  const inDir = join(tmp, 'in')
+  const upDir = join(tmp, 'up')
+  const partsDir = join(tmp, 'parts')
+  mkdirSync(partsDir, { recursive: true })
+
+  // Pedaços de ~1,5 GB de imagens no máximo (entrada + saída ampliada)
+  const totalFrames = Math.max(1, Math.round(range.dur * S))
+  const perChunk = Math.min(300, Math.max(8, Math.floor(1.5e9 / (p.inW * p.inH * 3 * (1 + p.k * p.k)))))
+  const chunks = Math.ceil(totalFrames / perChunk)
+  hooks.log('[app] ' + t('Ampliar com IA: {label}, {w}×{h} → {W}×{H}, {frames} quadros em {chunks} pedaço(s)', { label: p.label, w: p.inW, h: p.inH, W: p.geoUp.W, H: p.geoUp.H, frames: totalFrames, chunks }))
+
+  const parts: string[] = []
+  try {
+    for (let c = 0; c < chunks; c++) {
+      if (hooks.canceled()) return fail(t('Cancelado'))
+      const stage = t('IA ({label}): pedaço {n} de {total}', { label: p.label, n: c + 1, total: chunks })
+      const report = (frac: number) => hooks.progress(((c + frac) / chunks) * 100, stage)
+      report(0)
+      for (const d of [inDir, upDir]) {
+        rmSync(d, { recursive: true, force: true })
+        mkdirSync(d, { recursive: true })
+      }
+      const k0 = c * perChunk
+      const n = Math.min(perChunk, totalFrames - k0)
+      const ss = c === 0 ? range.start : range.start + (k0 - 0.5) / S
+      const ex = await runFfmpeg(['-hide_banner', '-v', 'error', '-y', '-ss', ss.toFixed(4), '-i', input, '-vf', `${p.pre ? p.pre + ',' : ''}fps=${S}`, '-frames:v', String(n), '-start_number', '1', join(inDir, '%08d.png')], 0, hooks)
+      if (hooks.canceled()) return fail(t('Cancelado'))
+      if (ex.code !== 0) return fail(ex.tail.slice(-4).join('\n') || t('Falha ao separar os quadros'))
+      const nIn = readdirSync(inDir).length
+      if (!nIn) break
+      report(0.08)
+
+      const args = ['-i', inDir, '-o', upDir, ...p.modelArgs, '-f', 'png', '-j', '1:2:2']
+      const rr = await runRife(exe, args, upDir, nIn, hooks, (pct) => report(0.08 + (pct / 100) * 0.8), 'ia')
+      if (hooks.canceled()) return fail(t('Cancelado'))
+      if (rr.code !== 0 || readdirSync(upDir).length < nIn) return fail(t('A IA de ampliar falhou: {error}', { error: rr.tail.slice(-3).join(' ') || t('código {code}', { code: String(rr.code) }) }))
+
+      const part = join(partsDir, `${String(c).padStart(5, '0')}.mp4`)
+      const frames = (dir: string) => ['-framerate', S.toFixed(6), '-start_number', '1', '-i', join(dir, '%08d.png')]
+      const tail = `${p.geoUp.filter},format=yuv420p`
+      const graph = blend < 100 ? [...frames(upDir), ...frames(inDir), '-filter_complex', blendGraph(p, blend, tail) + '[v]', '-map', '[v]'] : [...frames(upDir), '-vf', tail]
+      const en = await runFfmpeg(['-hide_banner', '-v', 'error', '-y', ...graph, '-frames:v', String(nIn), ...encoderArgs(enc, INTER_QUALITY), '-an', part], 0, hooks)
+      if (hooks.canceled()) return fail(t('Cancelado'))
+      if (en.code !== 0) return fail(en.tail.slice(-4).join('\n') || t('Falha ao gravar o pedaço'))
+      parts.push(part)
+      report(1)
+      if (nIn < n) break
+    }
+
+    if (!parts.length) return fail(t('Nenhum quadro foi lido do vídeo'))
+    const list = join(tmp, 'parts.txt')
+    writeFileSync(list, parts.map((f) => `file '${f.replace(/'/g, "'\\''")}'`).join('\n'))
+    const audio = info.hasAudio
+    const args = ['-hide_banner', '-y', '-f', 'concat', '-safe', '0', '-i', list]
+    if (audio) args.push('-ss', range.start.toFixed(3), '-t', range.dur.toFixed(3), '-i', input)
+    args.push('-map', '0:v:0', '-c:v', 'copy')
+    if (audio) args.push('-map', '1:a:0', '-c:a', 'flac')
+    args.push('-t', range.dur.toFixed(3), output)
+    hooks.progress(100, t('Juntando os pedaços'))
+    const fin = await runFfmpeg(args, 0, hooks)
+    if (hooks.canceled()) return fail(t('Cancelado'))
+    if (fin.code !== 0) return fail(fin.tail.slice(-4).join('\n') || t('Falha ao juntar o vídeo'))
+    return { ok: true, output, error: null }
+  } finally {
+    rmSync(tmp, { recursive: true, force: true })
+  }
+}
+
+let previewChild: ChildProcess | null = null
+
+/**
+ * Prévia da melhoria num quadro: "antes" só com tamanho e enquadramento, "depois" com tudo (inclusive a IA).
+ * Estabilizar e tirar o tremor de luz dependem de vários quadros, então não aparecem na prévia.
+ */
+export async function previewEnhance(input: string, s: ExportSettings, time: number): Promise<EnhancePreview> {
+  const bad = (error: string): EnhancePreview => ({ ok: false, error, before: null, after: null, seconds: 0 })
+  const tools = getToolStatus()
+  const ffmpeg = tools.ffmpeg.path
+  if (!ffmpeg) return bad(t('ffmpeg.exe não encontrado'))
+  let info: MediaInfo
+  try {
+    info = await probe(input)
+  } catch (err) {
+    return bad((err as Error).message)
+  }
+  s = withAiSize(s, info)
+  const e = { ...enhanceOf(s), stabilize: 'off' as const, deflicker: false }
+  const geo = geometry(info, s)
+  const fit = 'scale=960:960:force_original_aspect_ratio=decrease:force_divisible_by=2:flags=lanczos'
+  const at = Math.max(0, Math.min(time, (info.duration || 1) - 0.05)).toFixed(3)
+  const jpeg = async (args: string[]) => {
+    const r = await capture(ffmpeg, ['-hide_banner', '-v', 'error', '-y', ...args, '-frames:v', '1', '-f', 'image2pipe', '-c:v', 'mjpeg', '-q:v', '2', 'pipe:1'])
+    return r.code === 0 && r.out.length ? `data:image/jpeg;base64,${r.out.toString('base64')}` : null
+  }
+
+  const before = await jpeg(['-ss', at, '-i', input, '-vf', `${geo.filter},${fit}`])
+  if (!before) return bad(t('Não consegui ler o quadro'))
+  const t0 = Date.now()
+  if (e.upscaler === 'none') {
+    const after = await jpeg(['-ss', at, '-i', input, '-vf', [...cleanFilters(e), geo.filter, ...lookFilters(e), fit].join(',')])
+    return after ? { ok: true, error: null, before, after, seconds: (Date.now() - t0) / 1000 } : bad(t('Algum ajuste falhou neste quadro'))
+  }
+
+  const exe = tools.upscalers[e.upscaler]
+  if (!exe) return bad(t('Programa de ampliar com IA não encontrado ({name}). Reinstale o app.', { name: e.upscaler === 'esrgan' ? 'Real-ESRGAN' : 'Real-CUGAN' }))
+  const p = upscalePlan(info, s, e, exe)
+  const tmp = join(app.getPath('temp'), `yt-dlp-gui-previa-${randomUUID()}`)
+  mkdirSync(tmp, { recursive: true })
+  try {
+    const src = join(tmp, 'in.png')
+    const up = join(tmp, 'up.png')
+    const ex = await capture(ffmpeg, ['-hide_banner', '-v', 'error', '-y', '-ss', at, '-i', input, ...(p.pre ? ['-vf', p.pre] : []), '-frames:v', '1', src])
+    if (ex.code !== 0) return bad(ex.err.trim() || t('Não consegui ler o quadro'))
+    const ai = await new Promise<{ code: number | null; err: string }>((resolve) => {
+      const child = spawn(exe, ['-i', src, '-o', up, ...p.modelArgs, '-f', 'png'], { windowsHide: true, cwd: dirname(exe) })
+      previewChild = child
+      let err = ''
+      child.stderr.on('data', (d: Buffer) => (err += d.toString('utf8')))
+      child.on('error', (x) => resolve({ code: -1, err: x.message }))
+      child.on('close', (code) => resolve({ code, err }))
+    })
+    previewChild = null
+    if (ai.code !== 0 || !existsSync(up)) return bad(t('A IA de ampliar falhou: {error}', { error: ai.err.trim().split(/\r?\n/).slice(-2).join(' ') || t('código {code}', { code: String(ai.code) }) }))
+    const tail = [p.geoUp.filter, ...lookFilters(e), fit].join(',')
+    const blend = Math.max(0, Math.min(100, e.upBlend))
+    const after = await jpeg(blend < 100 ? ['-i', up, '-i', src, '-filter_complex', blendGraph(p, blend, tail)] : ['-i', up, '-vf', tail])
+    return after ? { ok: true, error: null, before, after, seconds: (Date.now() - t0) / 1000 } : bad(t('Algum ajuste falhou neste quadro'))
+  } finally {
+    rmSync(tmp, { recursive: true, force: true })
+  }
+}
+
+export function cancelPreview(): void {
+  if (previewChild?.pid != null && previewChild.exitCode == null) spawn('taskkill', ['/pid', String(previewChild.pid), '/T', '/F'], { windowsHide: true })
 }

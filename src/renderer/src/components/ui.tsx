@@ -1,5 +1,5 @@
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react'
-import { Check, Crown, Loader2, Sparkles, TriangleAlert } from 'lucide-react'
+import { useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from 'react'
+import { Check, ChevronRight, Crown, Info, Loader2, Sparkles, TriangleAlert } from 'lucide-react'
 import { t } from '../../../shared/i18n'
 import { compact } from '../lib/format'
 
@@ -268,5 +268,125 @@ export function MaxQualityButton({ active, onClick, detail, warning }: { active:
         </p>
       )}
     </div>
+  )
+}
+
+/**
+ * Controle deslizante compacto: nome e valor na mesma linha, a barra embaixo.
+ * Duplo clique volta ao valor neutro.
+ */
+export function Range({
+  label,
+  value,
+  onChange,
+  min,
+  max,
+  step = 1,
+  neutral = 0,
+  format,
+  hint,
+  info
+}: {
+  label: ReactNode
+  value: number
+  onChange: (v: number) => void
+  min: number
+  max: number
+  step?: number
+  neutral?: number
+  format?: (v: number) => string
+  hint?: ReactNode
+  /** Explicação no ícone "i" ao lado do nome */
+  info?: ReactNode
+}) {
+  const changed = value !== neutral
+  return (
+    <div className="space-y-1">
+      <div className="flex items-baseline justify-between gap-2 text-xs">
+        <span className="inline-flex items-center gap-1.5 text-[13px] text-text">
+          {label}
+          {info && <InfoTip>{info}</InfoTip>}
+        </span>
+        <span className={cx('font-mono text-xs tabular-nums', changed ? 'text-warn' : 'text-faint')}>{format ? format(value) : value > 0 && neutral === 0 && min < 0 ? `+${value}` : value}</span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        onDoubleClick={() => onChange(neutral)}
+        className="block w-full accent-[#ff4d4d]"
+      />
+      {hint && <div className="text-xs text-faint">{hint}</div>}
+    </div>
+  )
+}
+
+/** Bloco que abre e fecha ("Ajustes finos ▸"), para esconder o que é avançado */
+export function Disclosure({ title, children, defaultOpen = false }: { title: ReactNode; children: ReactNode; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <div>
+      <button type="button" onClick={() => setOpen(!open)} className="flex items-center gap-1 text-xs font-medium text-muted hover:text-text">
+        <ChevronRight className={cx('h-3.5 w-3.5 transition-transform', open && 'rotate-90')} />
+        {title}
+      </button>
+      {open && <div className="mt-2.5 space-y-3 border-l border-line pl-3">{children}</div>}
+    </div>
+  )
+}
+
+/**
+ * Ícone "i" que mostra uma explicação curta numa caixinha ao passar o mouse (ou ao focar com o teclado).
+ * A caixinha é "fixed" para não ser cortada pelo painel que rola.
+ */
+export function InfoTip({ children, className }: { children: ReactNode; className?: string }) {
+  const [pos, setPos] = useState<{ x: number; y: number; up: boolean } | null>(null)
+  const show = (el: HTMLElement) => {
+    const r = el.getBoundingClientRect()
+    const w = 260
+    const x = Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2))
+    const up = r.bottom + 140 > window.innerHeight
+    setPos({ x, y: up ? r.top - 6 : r.bottom + 6, up })
+  }
+  return (
+    <span
+      tabIndex={0}
+      role="button"
+      aria-label={t('O que é isto?')}
+      className={cx('inline-flex shrink-0 cursor-help items-center align-middle text-faint outline-none hover:text-info focus-visible:text-info', className)}
+      onMouseEnter={(e) => show(e.currentTarget)}
+      onMouseLeave={() => setPos(null)}
+      onFocus={(e) => show(e.currentTarget)}
+      onBlur={() => setPos(null)}
+      // Dentro de um <label>, o clique não deve ligar/desligar a opção
+      onClick={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+      }}
+    >
+      <Info className="h-3.5 w-3.5" />
+      {pos && (
+        <span
+          role="tooltip"
+          className="pointer-events-none fixed z-50 w-[260px] rounded-lg border border-line bg-panel-3 px-2.5 py-2 text-xs leading-snug font-normal tracking-normal text-text normal-case shadow-xl"
+          style={{ left: pos.x, top: pos.y, transform: pos.up ? 'translateY(-100%)' : undefined }}
+        >
+          {children}
+        </span>
+      )}
+    </span>
+  )
+}
+
+/** Nome de uma opção com o "i" ao lado (a explicação vai em children) */
+export function WithTip({ text, children }: { text: ReactNode; children: ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      {text}
+      <InfoTip>{children}</InfoTip>
+    </span>
   )
 }

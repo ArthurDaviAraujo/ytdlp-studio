@@ -4,7 +4,7 @@ import type { MediaInfo } from '../shared/types'
 import { getToolStatus } from './tools'
 import { t } from '../shared/i18n'
 
-function capture(bin: string, args: string[]): Promise<{ code: number | null; out: Buffer; err: string }> {
+export function capture(bin: string, args: string[]): Promise<{ code: number | null; out: Buffer; err: string }> {
   return new Promise((resolve) => {
     const child = spawn(bin, args, { windowsHide: true })
     const out: Buffer[] = []

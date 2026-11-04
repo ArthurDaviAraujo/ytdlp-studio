@@ -4,7 +4,8 @@ import type { EditPlan, ExportSettings, Job, MediaInfo } from '../../../shared/t
 import { BUILTIN_PRESETS } from '../../../shared/presets'
 import type { AppContext } from '../App'
 import { Button, Card, Empty, Spinner } from '../components/ui'
-import ExportForm from '../components/ExportForm'
+import ExportForm, { exportSummary, niceTime } from '../components/ExportForm'
+import BeforeAfter from '../components/BeforeAfter'
 import FramingPreview from '../components/FramingPreview'
 import { bytes, duration, parseTime } from '../lib/format'
 import { t } from '../../../shared/i18n'
@@ -109,6 +110,8 @@ export default function ExportPage({ ctx, jobs, source, setSource, edit, clearEd
     ctx.notify(t('Adicionado à fila'), { label: t('Ver downloads'), run: () => ctx.goTo('queue') })
   }
 
+  const [estimate, setEstimate] = useState<number | null>(null)
+  const summary = exportSummary(settings, info ? { width: info.width, height: info.height, fps: info.fps, duration: editDur ?? info.duration } : null)
   const outName = source ? `${baseName(source).replace(/\.[^.]+$/, '')}.${settings.suffix || 'editado'}.mp4` : ''
 
   return (
@@ -215,6 +218,7 @@ export default function ExportPage({ ctx, jobs, source, setSource, edit, clearEd
                     video={info.path}
                     total={info.duration}
                   />
+                  <BeforeAfter input={info.path} settings={settings} time={parseTime(settings.start) ?? info.duration * at} />
                 </div>
               )}
             </Card>
@@ -238,10 +242,28 @@ export default function ExportPage({ ctx, jobs, source, setSource, edit, clearEd
             onSavePreset={ctx.savePreset}
             onDeletePreset={ctx.deletePreset}
             inputPath={source}
+            upscalers={ctx.tools.upscalers}
+            onEstimate={setEstimate}
           />
         </div>
         <div className="space-y-2 border-t border-line p-4">
-          {outName && <div className="truncate text-xs text-muted" title={outName}>{t('Vai gerar: ')}{outName}</div>}
+          {info && (
+            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted">
+              {summary.map((p, i) => (
+                <span key={i} className="inline-flex items-center gap-1.5">
+                  {i > 0 && <span className="text-faint">·</span>}
+                  <span className={/Real-/.test(p) ? 'text-warn' : i === 0 ? 'text-text' : ''}>{p}</span>
+                </span>
+              ))}
+              {estimate != null && (
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="text-faint">·</span>
+                  <span className="font-medium text-text">≈ {niceTime(estimate)}</span>
+                </span>
+              )}
+            </div>
+          )}
+          {outName && <div className="truncate text-xs text-faint" title={outName}>{t('Vai gerar: ')}{outName}</div>}
           <Button variant="primary" size="lg" className="w-full" icon={<Wand2 className="h-5 w-5" />} disabled={!info} onClick={run}>
             {t('Preparar vídeo')}
           </Button>

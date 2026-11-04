@@ -47,6 +47,14 @@
       {
         "from": "../programas/rife-comunidade",
         "to": "bin/rife-comunidade"
+      },
+      {
+        "from": "../programas/realesrgan",
+        "to": "bin/realesrgan"
+      },
+      {
+        "from": "../programas/realcugan",
+        "to": "bin/realcugan"
       }
     ],
     "win": {

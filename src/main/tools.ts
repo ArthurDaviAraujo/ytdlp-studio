@@ -127,7 +127,11 @@ export function getToolStatus(refresh = false): ToolStatus {
     ffmpeg: { path: ffmpeg, version: ffmpegVersion?.replace(/^ffmpeg version\s+/, '').split(' ')[0] ?? null },
     ffprobe: { path: ffprobe, version: null },
     jsRuntime: resolveJsRuntime(s),
-    rife: findRife(s.rifePath)
+    rife: findRife(s.rifePath),
+    upscalers: {
+      esrgan: searchDirs().map((d) => join(d, 'realesrgan', 'realesrgan-ncnn-vulkan.exe')).find((p) => existsSync(p)) ?? null,
+      cugan: searchDirs().map((d) => join(d, 'realcugan', 'realcugan-ncnn-vulkan.exe')).find((p) => existsSync(p)) ?? null
+    }
   }
   return cached
 }

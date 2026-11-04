@@ -7,7 +7,7 @@ import { cancelInfo, checkYtdlpUpdate, getComments, getHelp, getInfo, updateYtdl
 import { frcAmfWorks, listH264Encoders, listRifeGpus } from './convert'
 import { audioDuration, frame, peaks, probe, thumbs } from './media'
 import * as jobs from './jobs'
-import { cancelEstimate, estimateExport } from './export'
+import { cancelEstimate, cancelPreview, estimateExport, previewEnhance } from './export'
 import { setLang, t } from '../shared/i18n'
 
 let mainWin: BrowserWindow | null = null
@@ -154,6 +154,8 @@ function registerIpc(): void {
   })
   ipcMain.handle('export:estimate', (_e, input: string, s: ExportSettings, totalOut: number) => estimateExport(input, s, totalOut))
   ipcMain.handle('export:estimate-cancel', () => cancelEstimate())
+  ipcMain.handle('export:preview', (_e, input: string, s: ExportSettings, time: number) => previewEnhance(input, s, time))
+  ipcMain.handle('export:preview-cancel', () => cancelPreview())
   ipcMain.handle('jobs:list', () => jobs.listJobs())
   ipcMain.handle('jobs:add', (_e, req: JobRequest) => jobs.addJob(req))
   ipcMain.handle('jobs:cancel', (_e, id: string) => jobs.cancelJob(id))

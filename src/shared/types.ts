@@ -55,6 +55,56 @@ export interface ExportSettings {
   maxBitrate: number
   audio: boolean
   audioKbps: number
+  /** Melhorar imagem e som; ausente em configurações antigas (= tudo desligado) */
+  enhance?: EnhanceSettings
+}
+
+/** Ampliar com IA: Real-ESRGAN (vídeo real e anime) ou Real-CUGAN (anime) */
+export type Upscaler = 'none' | 'esrgan' | 'cugan'
+
+export interface EnhanceSettings {
+  upscaler: Upscaler
+  esrganModel: 'realesr-animevideov3' | 'realesrgan-x4plus' | 'realesrgan-x4plus-anime'
+  cuganModel: 'se' | 'pro' | 'nose'
+  /** 0 = automático (o menor fator que chega ao tamanho final) */
+  upScale: number
+  /** Real-CUGAN: -1 conservador, 0 sem redução de ruído, 1 a 3 mais forte */
+  cuganNoise: number
+  upTta: boolean
+  /** Tamanho do bloco na placa; 0 = automático. Menor usa menos memória de vídeo */
+  upTile: number
+  /** 0–100: quanto da imagem da IA entra (o resto é o original ampliado) */
+  upBlend: number
+  deinterlace: boolean
+  /** 0–10 */
+  denoise: number
+  denoiseMethod: 'fast' | 'quality'
+  /** 0–10: tira os quadradinhos da compressão */
+  deblock: number
+  deband: boolean
+  /** 0–10 */
+  sharpen: number
+  sharpenMethod: 'cas' | 'unsharp'
+  /** −100 a 100 */
+  brightness: number
+  contrast: number
+  saturation: number
+  vibrance: number
+  /** Clareia (+) ou escurece (−) os tons médios */
+  gamma: number
+  /** −100 (mais frio) a 100 (mais quente) */
+  warmth: number
+  autoLight: boolean
+  stabilize: 'off' | 'light' | 'strong'
+  deflicker: boolean
+  /** 0–10: granulado de filme */
+  grain: number
+  /** 0–10 */
+  audioDenoise: number
+  /** Corta ronco e vento (abaixo de 80 Hz) */
+  audioCut: boolean
+  /** normalize: volume padrão das redes (−14 LUFS); even: também iguala partes baixas e altas */
+  audioLevel: 'off' | 'normalize' | 'even'
 }
 
 export interface SavedPreset {
@@ -93,6 +143,18 @@ export interface ToolStatus {
   jsRuntime: { name: string; path: string } | null
   /** models: ids na ordem do mais novo para o mais antigo; info diz de qual instalação cada um vem */
   rife: { path: string | null; models: string[]; info: Record<string, RifeModelInfo> }
+  /** Programas de ampliar com IA (pasta realesrgan e realcugan) */
+  upscalers: { esrgan: string | null; cugan: string | null }
+}
+
+/** Antes e depois de um quadro, para a prévia da melhoria */
+export interface EnhancePreview {
+  ok: boolean
+  error: string | null
+  before: string | null
+  after: string | null
+  /** Quanto o quadro "depois" levou para ficar pronto (s) */
+  seconds: number
 }
 
 export interface RifeModelInfo {
