@@ -23,7 +23,7 @@ Em desenvolvimento o app procura `yt-dlp.exe`, `ffmpeg.exe`, `ffprobe.exe` e as 
 npm run dist
 ```
 
-Sai em `release\yt-dlp GUI Setup <versão>.exe`. O instalador leva junto o `yt-dlp.exe`, o `ffmpeg.exe`, o `ffprobe.exe` e as pastas `rife` e `rife-comunidade` da pasta `D:\yt-dlp\programas`. Depois de gerado, ele pode ser movido para `D:\yt-dlp\instalador`. Na primeira execução eles são copiados para `%APPDATA%\yt-dlp GUI\bin`, onde o yt-dlp consegue se atualizar. O app instalado usa essa cópia; o modo de desenvolvimento usa sempre os programas de `D:\yt-dlp\programas`.
+Sai em `release\yt-dlp GUI Setup <versão>.exe`. O instalador leva junto o `yt-dlp.exe`, o `ffmpeg.exe`, o `ffprobe.exe` e as pastas `rife`, `rife-comunidade`, `realesrgan` e `realcugan` da pasta `D:\yt-dlp\programas`. Depois de gerado, ele pode ser movido para `D:\yt-dlp\instalador`. Na primeira execução eles são copiados para `%APPDATA%\yt-dlp GUI\bin`, onde o yt-dlp consegue se atualizar. O app instalado usa essa cópia; o modo de desenvolvimento usa sempre os programas de `D:\yt-dlp\programas`.
 
 ## O que tem
 
@@ -49,6 +49,23 @@ Sai em `release\yt-dlp GUI Setup <versão>.exe`. O instalador leva junto o `yt-d
     - Placa AMD (`frc_amf`): dobra o FPS e o app compensa o atraso de 2 quadros do filtro;
     - Processador (`minterpolate`);
     - IA (RIFE): 47 modelos, modo UHD e TTA espacial e temporal. Os modelos v4 aceitam qualquer FPS; os outros só dobram.
+  - **Melhorar imagem e som** (aba Imagem). Um ícone "i" explica cada opção técnica ao passar o mouse.
+
+    ![Demonstração: vídeo comprimido, receita "Muito comprimido", antes e depois com a divisória e ampliar com Real-ESRGAN](docs/demo-melhorar.gif)
+
+    - **Ampliar com IA**: [Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN) (vídeo real, foto realista e anime) e [Real-CUGAN](https://github.com/nihui/realcugan-ncnn-vulkan) (anime). As duas rodam pela Vulkan, em pedaços, como o RIFE.
+      - A escala é automática ou fixa em 2x, 3x ou 4x. Também dá para ajustar a limpeza da própria IA, a mistura com o original, o TTA, o tamanho do bloco e a placa de vídeo.
+      - Funciona junto com o RIFE: primeiro amplia, depois cria os quadros.
+      - Com "Manter o original", o resultado vai até 4K. Acima de 4096 px, o app grava com `libx264`, porque os codificadores das placas não passam disso.
+    - **Limpeza**: ruído (`hqdn3d`, rápido, ou `nlmeans`, mais lento), quadradinhos da compressão (`deblock`), faixas em degradês (`deband`) e desentrelaçar (`bwdif`).
+    - **Nitidez**: natural (`cas`) ou forte (`unsharp`).
+    - **Cor e luz**: luz automática, brilho, contraste, sombras, saturação, vibração e temperatura.
+    - **Correções**: estabilizar leve (`deshake`) ou forte (`vidstab`, em 2 passadas), tirar o pisca-pisca da luz e granulado de filme.
+    - **Som** (aba Arquivo): cortar ronco e vento, tirar chiado (`afftdn`) e volume no padrão das redes (`loudnorm` a −14 LUFS, com opção de subir as partes baixas).
+    - **7 receitas prontas**: Muito comprimido, Vídeo antigo/VHS, Celular no escuro, Anime/desenho, Só nitidez leve, Cores vivas e Voz limpa.
+    - **Antes e depois**: um quadro do vídeo com uma divisória que se arrasta. Sem IA, a comparação se atualiza sozinha; com IA, só pelo botão (2 a 3 s por quadro).
+    - **Resumo**: acima do botão Preparar, aparece o que vai sair (tamanho, IA, FPS, ajustes e tempo estimado).
+  - O painel fica em abas (Formato, Imagem, Movimento / FPS e Arquivo). Uma aba com algo ligado ganha um ponto.
   - **Estimar o tempo:** antes de exportar, o app faz a exportação de verdade em dois trechos curtos (1 s e 3 s). Assim ele separa o custo fixo do custo por segundo e calcula quanto o vídeo inteiro vai levar no seu PC. Também compara os métodos de quadros novos já medidos, para ver se vale a pena. A medição pode ser cancelada.
   - **Preparar depois de baixar**, no painel de download, faz tudo num pedido só: baixa e, em seguida, gera o arquivo preparado.
   - O arquivo novo sai ao lado do original (`nome.tiktok.mp4`), sem apagar nada.
@@ -68,6 +85,9 @@ Sai em `release\yt-dlp GUI Setup <versão>.exe`. O instalador leva junto o `yt-d
   - a da comunidade, [TNTwise/rife-ncnn-vulkan](https://github.com/TNTwise/rife-ncnn-vulkan) (MIT, versão 20250112), em `D:\yt-dlp\programas\rife-comunidade`. Dela só vieram os 36 modelos que a oficial não tem (v3.6 e v3.9, v4.1 a v4.26 e as variações lite, heavy e large).
 
   O app junta tudo numa lista só (47 modelos). Cada modelo roda com o programa da instalação de onde veio. Qualquer pasta `rife-*` ao lado da pasta `rife` vira mais uma instalação. Tudo roda pela Vulkan, então funciona em placas AMD, NVIDIA e Intel.
+- **Ampliar com IA**, também pela Vulkan:
+  - [Real-ESRGAN ncnn-vulkan](https://github.com/xinntao/Real-ESRGAN) 20220424 (BSD-3-Clause), em `D:\yt-dlp\programas\realesrgan`, com os modelos `realesr-animevideov3` (2x, 3x e 4x), `realesrgan-x4plus` e `realesrgan-x4plus-anime`;
+  - [Real-CUGAN ncnn-vulkan](https://github.com/nihui/realcugan-ncnn-vulkan) 20220728 (MIT), em `D:\yt-dlp\programas\realcugan`, com os modelos `se`, `pro` e `nose`.
 - **ffprobe.exe**: necessário para "embutir miniatura", para a página Preparar vídeo e para algumas correções. Ele precisa estar na mesma pasta do `ffmpeg.exe` que o app usa (o caminho aparece em Configurações), porque o yt-dlp só o procura ali.
 
 ## Estrutura

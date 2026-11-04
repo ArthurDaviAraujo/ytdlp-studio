@@ -129,10 +129,11 @@ export default function FramingPreview({
   // Resultado no modo corte: o vídeo inteiro ampliado e deslocado dentro da caixa (vale para qualquer zoom)
   const cropStyle: CSSProperties = {
     position: 'absolute',
-    width: boxW / fw,
-    height: boxH / fh,
-    left: -(boxW / fw - boxW) * px,
-    top: -(boxH / fh - boxH) * py,
+    // Em % da caixa, para a caixa poder encolher quando o resultado é largo (ex.: 16:9 ao lado do original)
+    width: `${100 / fw}%`,
+    height: `${100 / fh}%`,
+    left: `${-(1 / fw - 1) * px * 100}%`,
+    top: `${-(1 / fh - 1) * py * 100}%`,
     maxWidth: 'none',
     objectFit: 'fill'
   }
@@ -178,11 +179,11 @@ export default function FramingPreview({
           </div>
         </div>
 
-        <div className="shrink-0">
+        <div className="min-w-0 shrink-0" style={{ width: boxW, maxWidth: '58%' }}>
           <div className="mb-1.5 text-xs text-muted">
             {t('Resultado (')}{outW}×{outH})
           </div>
-          <div className="relative overflow-hidden rounded-lg border border-line" style={{ width: boxW, height: boxH, background: s.framing === 'bars' && !same ? s.barColor : '#000' }}>
+          <div className="relative overflow-hidden rounded-lg border border-line" style={{ width: '100%', aspectRatio: `${outW} / ${outH}`, background: s.framing === 'bars' && !same ? s.barColor : '#000' }}>
             {canPlay ? (
               <>
                 {!same && s.framing === 'blur' && (

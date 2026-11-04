@@ -81,7 +81,11 @@ export default function BeforeAfter({ input, settings, time }: { input: string; 
           className={cx('relative mx-auto w-fit max-w-full cursor-ew-resize overflow-hidden rounded-lg border border-line bg-black select-none', busy && 'opacity-70')}
           onPointerDown={(ev) => {
             dragging.current = true
-            ev.currentTarget.setPointerCapture(ev.pointerId)
+            try {
+              ev.currentTarget.setPointerCapture(ev.pointerId)
+            } catch {
+              // ponteiro já solto
+            }
             move(ev.clientX)
           }}
           onPointerMove={(ev) => dragging.current && move(ev.clientX)}
