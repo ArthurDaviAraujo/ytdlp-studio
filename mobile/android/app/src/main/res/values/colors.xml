@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- A mesma cor de fundo da tela (a cor-bg do styles.css): aparece atrás da barra de status e da de navegação -->
+    <color name="fundo">#0B0D12</color>
+</resources>

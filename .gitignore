@@ -2,3 +2,13 @@ node_modules
 out
 release
 release-teste*
+
+# App de celular
+mobile/dist
+mobile/android/app/build
+mobile/android/build
+mobile/android/.gradle
+mobile/android/local.properties
+mobile/android/app/.cxx
+# ncnn pré-compilado (60 MB): baixe com o script em mobile/README.md
+mobile/android/app/src/main/cpp/ncnn

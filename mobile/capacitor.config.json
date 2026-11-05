@@ -1,0 +1,14 @@
+{
+  "appId": "dev.arthurdavi.ytdlpgui",
+  "appName": "yt-dlp GUI",
+  "webDir": "dist",
+  "android": {
+    "backgroundColor": "#0b0d12"
+  },
+  "plugins": {
+    "SystemBars": {
+      "style": "DARK",
+      "initialViewportFitValueHint": "cover"
+    }
+  }
+}

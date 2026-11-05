@@ -6,6 +6,8 @@ Programa de desktop (Windows) que dá uma interface ao `yt-dlp`. Não altera nem
 
 **Baixar:** o instalador para Windows está em [Releases](https://github.com/ArthurDaviAraujo/ytdlp-studio/releases/latest).
 
+**Android:** tem também um app de celular, na pasta [`mobile`](mobile/README.md). Ele baixa vídeos, recebe links pelo "Compartilhar" e prepara vídeos para as redes. A IA de quadros (RIFE) e a de imagem (Real-ESRGAN) são baixadas à parte, só por quem quiser. O APK sai na [release Android](https://github.com/ArthurDaviAraujo/ytdlp-studio/releases).
+
 Stack: Electron 45 + electron-vite + React 19 + TypeScript + Tailwind CSS 4.
 
 ## Rodar
@@ -128,5 +130,6 @@ Tudo é salvo em `%APPDATA%\yt-dlp GUI\bin`. Depois de gerado, ele pode ser movi
 src/main/       processo principal: encontra os programas, roda o yt-dlp, fila, conversão
 src/preload/    ponte segura entre a janela e o processo principal (window.api)
 src/renderer/   interface em React
-src/shared/     tipos usados pelos dois lados
+src/shared/     tipos usados pelos dois lados (e pelo app de celular)
+mobile/         app Android (Capacitor + Kotlin + motor de IA em C++)
 ```

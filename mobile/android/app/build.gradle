@@ -1,0 +1,86 @@
+apply plugin: 'com.android.application'
+apply plugin: 'org.jetbrains.kotlin.android'
+
+android {
+    namespace = "dev.arthurdavi.ytdlpgui"
+    compileSdk = rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "dev.arthurdavi.ytdlpgui"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 1
+        versionName "1.0.0"
+        // Celulares (arm64) e o emulador do PC (x86_64)
+        externalNativeBuild { cmake { arguments '-DANDROID_STL=c++_static'; abiFilters 'arm64-v8a', 'x86_64' } }
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    // O motor das IAs (ncnn + RIFE + Real-ESRGAN), compilado com o NDK
+    externalNativeBuild { cmake { path 'src/main/cpp/CMakeLists.txt'; version '3.31.6' } }
+    ndkVersion '30.0.16248370'
+    // O Python e o ffmpeg da youtubedl-android rodam direto da pasta das bibliotecas
+    packaging { jniLibs { useLegacyPackaging = true } }
+    // Um APK por tipo de processador (bem menor que um só para todos)
+    splits { abi { enable true; reset(); include 'arm64-v8a', 'x86_64'; universalApk false } }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_21; targetCompatibility JavaVersion.VERSION_21 }
+    kotlinOptions { jvmTarget = '21' }
+    // Assinatura: a chave e a senha ficam fora do git. O local.properties aponta o arquivo com "assinatura=<caminho>"
+    def localProps = new Properties()
+    def localFile = rootProject.file('local.properties')
+    if (localFile.exists()) localFile.withInputStream { localProps.load(it) }
+    def signProps = new Properties()
+    def signFile = localProps.getProperty('assinatura') ? file(localProps.getProperty('assinatura')) : null
+    if (signFile?.exists()) signFile.withInputStream { signProps.load(it) }
+    signingConfigs {
+        if (signProps.getProperty('storeFile')) {
+            release {
+                storeFile file(signProps.getProperty('storeFile'))
+                storePassword signProps.getProperty('storePassword')
+                keyAlias signProps.getProperty('keyAlias')
+                keyPassword signProps.getProperty('keyPassword')
+            }
+        }
+    }
+    buildTypes {
+        release {
+            if (signProps.getProperty('storeFile')) signingConfig signingConfigs.release
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    implementation 'io.github.junkfood02.youtubedl-android:library:0.18.1'
+    implementation 'io.github.junkfood02.youtubedl-android:ffmpeg:0.18.1'
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}
