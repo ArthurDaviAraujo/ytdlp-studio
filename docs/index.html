@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>yt-dlp GUI — Baixe e prepare vídeos</title>
+  <meta name="description" content="Baixe vídeos de mais de 1.700 sites e deixe tudo pronto para TikTok, Reels e Shorts, com IA, no PC e no Android. Gratuito e de código aberto.">
+  <meta property="og:title" content="yt-dlp GUI">
+  <meta property="og:description" content="Baixe e prepare vídeos para as redes, com IA, no Windows e no Android.">
+  <meta property="og:image" content="img/icon.png">
+  <meta name="theme-color" content="#0b0d12">
+  <link rel="icon" href="img/icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script>
+    // Tema antes de desenhar, para não piscar
+    try { const t = localStorage.getItem('site-tema'); if (t) document.documentElement.dataset.theme = t } catch (e) {}
+  </script>
+</head>
+<body>
+
+<header class="topo">
+  <div class="topo-dentro">
+    <a class="logo" href="#">
+      <img src="img/icon.svg" alt="" width="28" height="28">
+      <span>yt-dlp GUI</span>
+    </a>
+
+    <nav class="menu">
+      <div class="suspenso" id="menu-baixar">
+        <button class="menu-item suspenso-botao" aria-haspopup="true" aria-expanded="false">
+          <span data-i18n="nav-baixar">Baixar</span> <span class="versao-nav" id="nav-versao">v1.5.0</span>
+          <svg class="seta" viewBox="0 0 24 24" width="14" height="14"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="suspenso-lista" role="menu">
+          <a role="menuitem" id="nav-win" href="https://github.com/ArthurDaviAraujo/ytdlp-studio/releases/latest">
+            <span>Windows</span><small id="nav-win-v">v1.5.0</small>
+          </a>
+          <a role="menuitem" id="nav-and" href="https://github.com/ArthurDaviAraujo/ytdlp-studio/releases/tag/android-v1.0.1">
+            <span>Android</span><small id="nav-and-v">v1.0.1</small>
+          </a>
+          <a role="menuitem" href="https://github.com/ArthurDaviAraujo/ytdlp-studio/releases" target="_blank" rel="noopener">
+            <span data-i18n="nav-todas">Todas as versões</span><small>GitHub</small>
+          </a>
+        </div>
+      </div>
+      <a class="menu-item some-celular" href="#recursos" data-i18n="nav-recursos">Recursos</a>
+      <a class="menu-item some-celular" href="#instalar" data-i18n="nav-instalar">Como instalar</a>
+      <span class="divisor some-celular"></span>
+      <button class="icone-botao" id="trocar-idioma" title="Language / Idioma">EN</button>
+      <button class="icone-botao" id="trocar-tema" title="Tema">
+        <svg class="lua" viewBox="0 0 24 24" width="18" height="18"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <svg class="sol" viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+      <a class="icone-botao" href="https://github.com/ArthurDaviAraujo/ytdlp-studio" target="_blank" rel="noopener" title="GitHub">
+        <svg viewBox="0 0 24 24" width="19" height="19"><path fill="currentColor" d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.2.5-2.3 1.2-3.1-.1-.4-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.7 1.7.2 2.8.1 3.2.8.8 1.2 1.9 1.2 3.1 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5z"/></svg>
+      </a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <!-- ================= Abertura ================= -->
+  <section class="heroi">
+    <div class="heroi-texto">
+      <h1>
+        <span class="marca">yt-dlp GUI</span>
+        <span class="titulo" data-i18n="titulo">Baixe e prepare vídeos</span>
+      </h1>
+      <p class="chamada" data-i18n="chamada">Baixe de mais de 1.700 sites e deixe tudo pronto para TikTok, Reels e Shorts, com IA, no seu PC e no seu celular Android.</p>
+
+      <div class="acoes">
+        <a class="botao primario" id="instalar-principal" href="#instalar">
+          <svg viewBox="0 0 24 24" width="17" height="17"><path d="M12 3v12m-5-5 5 5 5-5M5 21h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span id="instalar-texto" data-i18n="instalar">Instalar</span>
+        </a>
+        <a class="botao secundario" href="https://github.com/ArthurDaviAraujo/ytdlp-studio" target="_blank" rel="noopener" data-i18n="ver-github">Ver no GitHub</a>
+      </div>
+
+      <div class="cartao-versao">
+        <div class="abas" role="tablist">
+          <button class="aba ativa" data-plataforma="windows" role="tab">Windows</button>
+          <button class="aba" data-plataforma="android" role="tab">Android</button>
+        </div>
+        <div class="versao-linha">
+          <div>
+            <div class="rotulo" data-i18n="ultima">Última versão estável</div>
+            <div class="nome-versao" id="cartao-nome">yt-dlp GUI v1.5.0</div>
+            <div class="rotulo" id="cartao-data">Lançada em 4 de nov. de 2026 · 260 MB</div>
+          </div>
+          <a class="botao primario pequeno" id="cartao-baixar" href="https://github.com/ArthurDaviAraujo/ytdlp-studio/releases/latest">
+            <svg viewBox="0 0 24 24" width="15" height="15"><path d="M12 3v12m-5-5 5 5 5-5M5 21h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span data-i18n="baixar">Baixar</span>
+          </a>
+        </div>
+        <div class="rotulo nota" id="cartao-nota" data-i18n="nota-windows">Windows 10 ou 11, 64 bits. As IAs são baixadas dentro do app, só se você for usar.</div>
+      </div>
+    </div>
+
+    <div class="palco" aria-hidden="true">
+      <div class="brilho"></div>
+      <div class="janela">
+        <div class="janela-barra"><i></i><i></i><i></i></div>
+        <img src="img/demo.gif" alt="" width="960" height="594" loading="eager">
+      </div>
+      <div class="celular">
+        <img id="foto-celular" src="img/celular.png" alt="" width="540" height="1200">
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= Recursos ================= -->
+  <section class="secao" id="recursos">
+    <div class="grade">
+      <article class="recurso">
+        <div class="recurso-icone verde"><svg viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M5 21h14"/></svg></div>
+        <h3 data-i18n="r1-t">Baixe de quase tudo</h3>
+        <p data-i18n="r1-p">YouTube, TikTok, Instagram e mais de 1.700 sites. Qualidade máxima com um clique, só o áudio, legendas, playlists e capítulos.</p>
+        <a href="https://github.com/ArthurDaviAraujo/ytdlp-studio#o-que-tem" target="_blank" rel="noopener"><span data-i18n="r1-l">Ver todas as opções</span> →</a>
+      </article>
+      <article class="recurso">
+        <div class="recurso-icone azul"><svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg></div>
+        <h3 data-i18n="r2-t">Pronto para as redes</h3>
+        <p data-i18n="r2-p">TikTok, Reels, Shorts e feed: tamanho, enquadramento, fundo desfocado, texto e logo. O corte pode seguir o rosto ou a pessoa.</p>
+        <a href="#instalar"><span data-i18n="r2-l">Começar</span> →</a>
+      </article>
+      <article class="recurso">
+        <div class="recurso-icone vermelho"><svg viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg></div>
+        <h3 data-i18n="r3-t">Quadros novos com IA</h3>
+        <p data-i18n="r3-p">O RIFE cria os quadros que faltam: de 30 para 60 fps ou câmera lenta suave. São 47 modelos rodando na sua placa de vídeo.</p>
+        <a href="https://github.com/nihui/rife-ncnn-vulkan" target="_blank" rel="noopener"><span data-i18n="r3-l">Sobre o RIFE</span> →</a>
+      </article>
+      <article class="recurso">
+        <div class="recurso-icone amarelo"><svg viewBox="0 0 24 24"><path d="m12 3 1.9 5.8L20 10l-5 3.6L16.5 20 12 16.3 7.5 20 9 13.6 4 10l6.1-1.2z"/></svg></div>
+        <h3 data-i18n="r4-t">Melhore a imagem</h3>
+        <p data-i18n="r4-p">Real-ESRGAN e Real-CUGAN ampliam até 4K. Limpeza, nitidez, cor e 7 receitas prontas, com comparação antes e depois.</p>
+        <a href="#veja"><span data-i18n="r4-l">Ver o antes e depois</span> →</a>
+      </article>
+      <article class="recurso">
+        <div class="recurso-icone roxo"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12"/></svg></div>
+        <h3 data-i18n="r5-t">Editor de vídeo</h3>
+        <p data-i18n="r5-p">Cortes na linha do tempo, várias músicas, mixer com equalizador e velocidade de 0,1x a 16x. Ctrl+Z em tudo.</p>
+        <a href="https://github.com/ArthurDaviAraujo/ytdlp-studio#o-que-tem" target="_blank" rel="noopener"><span data-i18n="r5-l">Saiba mais</span> →</a>
+      </article>
+      <article class="recurso">
+        <div class="recurso-icone ciano"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 15h4M14 15h3M7 11h2M12 11h5"/></svg></div>
+        <h3 data-i18n="r6-t">Legendas e voz</h3>
+        <p data-i18n="r6-p">Legendas automáticas com o Whisper, palavra por palavra no estilo TikTok. Também separa a voz da música.</p>
+        <a href="https://github.com/ArthurDaviAraujo/ytdlp-studio#o-que-tem" target="_blank" rel="noopener"><span data-i18n="r6-l">Saiba mais</span> →</a>
+      </article>
+    </div>
+  </section>
+
+  <!-- ================= Demonstração ================= -->
+  <section class="secao duas-colunas" id="veja">
+    <div>
+      <h2 data-i18n="veja-t">Veja a diferença</h2>
+      <p class="suave" data-i18n="veja-p">Um vídeo muito comprimido, a receita "Muito comprimido" e a IA Real-ESRGAN. Arraste a divisória no app para comparar o antes e o depois.</p>
+      <ul class="lista-check">
+        <li data-i18n="veja-1">Roda na sua placa de vídeo (AMD, NVIDIA ou Intel)</li>
+        <li data-i18n="veja-2">Estima quanto tempo vai levar antes de começar</li>
+        <li data-i18n="veja-3">Funciona junto com os quadros novos do RIFE</li>
+      </ul>
+    </div>
+    <div class="quadro-gif">
+      <img src="demo-melhorar.gif" alt="Antes e depois do Melhorar imagem" width="960" height="590" loading="lazy">
+    </div>
+  </section>
+
+  <!-- ================= Como instalar ================= -->
+  <section class="secao" id="instalar">
+    <h2 class="centro" data-i18n="inst-t">Como instalar</h2>
+    <p class="suave centro" data-i18n="inst-p">Grátis, sem conta e sem anúncios.</p>
+    <div class="grade duas">
+      <article class="passo-cartao" id="passos-windows">
+        <div class="passo-topo">
+          <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M3 5.5 10.5 4.4v7.1H3zm0 13 7.5 1.1v-7H3zm8.5 1.2L21 21v-8.4h-9.5zm0-15.4v7.2H21V3z"/></svg>
+          <h3>Windows</h3>
+          <span class="selo" id="selo-win">v1.5.0</span>
+        </div>
+        <ol>
+          <li data-i18n="w1">Baixe o instalador (.exe).</li>
+          <li data-i18n="w2">Se aparecer "O Windows protegeu o computador", clique em <b>Mais informações</b> e depois em <b>Executar assim mesmo</b>.</li>
+          <li data-i18n="w3">Siga o instalador. O app avisa quando sair uma versão nova.</li>
+        </ol>
+        <a class="botao primario" id="baixar-windows" href="https://github.com/ArthurDaviAraujo/ytdlp-studio/releases/latest"><span data-i18n="baixar-win">Baixar para Windows</span></a>
+      </article>
+      <article class="passo-cartao" id="passos-android">
+        <div class="passo-topo">
+          <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M17.6 9.5 19.4 6.4a.4.4 0 0 0-.7-.4l-1.8 3.2a11 11 0 0 0-9.8 0L5.3 6a.4.4 0 0 0-.7.4l1.8 3.1A10.4 10.4 0 0 0 1 18h22a10.4 10.4 0 0 0-5.4-8.5zM7 15.3a1 1 0 1 1 0-2.1 1 1 0 0 1 0 2.1zm10 0a1 1 0 1 1 0-2.1 1 1 0 0 1 0 2.1z"/></svg>
+          <h3>Android</h3>
+          <span class="selo" id="selo-and">v1.0.1</span>
+        </div>
+        <ol>
+          <li data-i18n="a1">No celular, baixe o APK (arm64).</li>
+          <li data-i18n="a2">Toque no arquivo baixado e permita <b>instalar apps desta fonte</b>.</li>
+          <li data-i18n="a3">Se o Play Protect avisar, toque em <b>Mais detalhes</b> e em <b>Instalar assim mesmo</b>.</li>
+        </ol>
+        <a class="botao primario" id="baixar-android" href="https://github.com/ArthurDaviAraujo/ytdlp-studio/releases/tag/android-v1.0.1"><span data-i18n="baixar-and">Baixar para Android</span></a>
+      </article>
+    </div>
+  </section>
+
+  <!-- ================= Perguntas ================= -->
+  <section class="secao estreita">
+    <h2 class="centro" data-i18n="faq-t">Perguntas</h2>
+    <details>
+      <summary data-i18n="q1">É grátis mesmo?</summary>
+      <p data-i18n="r1">Sim. O código é aberto (licença MIT) e está no GitHub. Não tem conta, assinatura nem anúncio.</p>
+    </details>
+    <details>
+      <summary data-i18n="q2">Por que não está na Play Store?</summary>
+      <p data-i18n="r2">A Google costuma recusar apps que baixam vídeos de sites como o YouTube. Por isso o APK sai direto pelo GitHub, assinado sempre com a mesma chave.</p>
+    </details>
+    <details>
+      <summary data-i18n="q3">Preciso de uma placa de vídeo boa?</summary>
+      <p data-i18n="r3">Para baixar e preparar, não. As IAs usam a placa de vídeo pela Vulkan e ficam muito mais rápidas com ela. O app mostra quanto tempo vai levar antes de começar.</p>
+    </details>
+    <details>
+      <summary data-i18n="q4">Um site parou de funcionar. E agora?</summary>
+      <p data-i18n="r4">Os sites mudam com frequência. Em Configurações, toque em "Atualizar yt-dlp". O app de celular já faz isso sozinho uma vez por dia.</p>
+    </details>
+  </section>
+</main>
+
+<footer class="rodape">
+  <p><span data-i18n="rod-1">Código aberto, licença MIT</span> | <a href="https://github.com/ArthurDaviAraujo/ytdlp-studio" target="_blank" rel="noopener">GitHub</a></p>
+  <p class="suave" data-i18n="rod-2">Usa o yt-dlp, o ffmpeg e IAs de código aberto. Não é afiliado ao projeto yt-dlp.</p>
+  <p class="suave">© 2026 Arthur Davi</p>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
