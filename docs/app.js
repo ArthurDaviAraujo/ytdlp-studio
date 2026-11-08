@@ -16,6 +16,9 @@ const versoes = {
   }
 }
 
+// Todas as versões (para o menu); até o GitHub responder, só a mais nova de cada
+const todas = { windows: [versoes.windows], android: [versoes.android] }
+
 // ---------- Idioma ----------
 const EN = {
   'nav-baixar': 'Download',
@@ -149,10 +152,7 @@ function atualizar() {
 
   // Menu, selos e botões das instruções
   document.getElementById('nav-versao').textContent = 'v' + (sistema === 'android' ? a.v : w.v)
-  document.getElementById('nav-win').href = w.url
-  document.getElementById('nav-win-v').textContent = 'v' + w.v
-  document.getElementById('nav-and').href = a.url
-  document.getElementById('nav-and-v').textContent = 'v' + a.v
+  montarMenu()
   document.getElementById('selo-win').textContent = 'v' + w.v
   document.getElementById('selo-and').textContent = 'v' + a.v
   document.getElementById('baixar-windows').href = w.url
@@ -179,6 +179,27 @@ document.querySelectorAll('.aba').forEach((b) =>
   })
 )
 
+// Menu "Baixar": todas as versões de cada sistema, a mais nova primeiro e marcada
+function montarMenu() {
+  const en = idioma === 'en'
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c])
+  const grupo = (titulo, lista, ext) =>
+    `<div class="grupo-titulo">${titulo}</div>` +
+    lista
+      .map((r, i) => {
+        const selo = i === 0 ? ` <em class="mais-nova">${en ? 'Latest' : 'Mais nova'}</em>` : ''
+        const data = r.data ? formatarData(r.data.slice(0, 10)) : ext
+        return `<a role="menuitem" class="${i ? 'antiga' : ''}" href="${esc(r.url)}"><span>v${esc(r.v)}${selo}</span><small>${esc(data)}</small></a>`
+      })
+      .join('')
+  // O sistema de quem abre o site vem primeiro
+  const w = grupo('Windows', todas.windows, '.exe')
+  const a = grupo('Android', todas.android, '.apk')
+  document.getElementById('lista-versoes').innerHTML =
+    (sistema === 'android' ? a + w : w + a) +
+    `<a role="menuitem" class="todas" href="${PAGINA}" target="_blank" rel="noopener"><span>${en ? 'All on GitHub' : 'Todas no GitHub'}</span><small>↗</small></a>`
+}
+
 // ---------- Versões mais novas, direto do GitHub ----------
 const maior = (x, y) => {
   const a = x.split('.').map(Number), b = y.split('.').map(Number)
@@ -190,21 +211,22 @@ async function buscarVersoes() {
   const r = await fetch(`https://api.github.com/repos/${REPO}/releases?per_page=30`, { headers: { Accept: 'application/vnd.github+json' } })
   if (!r.ok) return
   const lista = await r.json()
-  let win = null, and = null
+  const win = [], and = []
   for (const rel of lista) {
     if (rel.draft || rel.prerelease) continue
     const mw = /^v(\d+(?:\.\d+)*)$/.exec(rel.tag_name)
     const ma = /^android-v(\d+(?:\.\d+)*)$/.exec(rel.tag_name)
     if (mw) {
       const exe = rel.assets.find((x) => x.name.endsWith('.exe'))
-      if (exe && (!win || maior(mw[1], win.v))) win = { v: mw[1], data: rel.published_at, bytes: exe.size, url: exe.browser_download_url, pagina: rel.html_url }
+      if (exe) win.push({ v: mw[1], data: rel.published_at, bytes: exe.size, url: exe.browser_download_url, pagina: rel.html_url })
     } else if (ma) {
       const apk = rel.assets.find((x) => x.name.endsWith('.apk') && x.name.includes('arm64'))
-      if (apk && (!and || maior(ma[1], and.v))) and = { v: ma[1], data: rel.published_at, bytes: apk.size, url: apk.browser_download_url, pagina: rel.html_url }
+      if (apk) and.push({ v: ma[1], data: rel.published_at, bytes: apk.size, url: apk.browser_download_url, pagina: rel.html_url })
     }
   }
-  if (win) versoes.windows = win
-  if (and) versoes.android = and
+  const ordem = (x, y) => (maior(x.v, y.v) ? -1 : maior(y.v, x.v) ? 1 : 0)
+  if (win.length) (todas.windows = win.sort(ordem)), (versoes.windows = todas.windows[0])
+  if (and.length) (todas.android = and.sort(ordem)), (versoes.android = todas.android[0])
   atualizar()
 }
 

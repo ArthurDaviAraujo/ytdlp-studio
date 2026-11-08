@@ -34,15 +34,18 @@
           <span data-i18n="nav-baixar">Baixar</span> <span class="versao-nav" id="nav-versao">v1.5.0</span>
           <svg class="seta" viewBox="0 0 24 24" width="14" height="14"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
-        <div class="suspenso-lista" role="menu">
-          <a role="menuitem" id="nav-win" href="https://github.com/ArthurDaviAraujo/ytdlp-studio/releases/latest">
-            <span>Windows</span><small id="nav-win-v">v1.5.0</small>
+        <!-- O app.js troca isto pela lista de todas as versões, vinda do GitHub -->
+        <div class="suspenso-lista" role="menu" id="lista-versoes">
+          <div class="grupo-titulo">Windows</div>
+          <a role="menuitem" href="https://github.com/ArthurDaviAraujo/ytdlp-studio/releases/latest">
+            <span>v1.5.0 <em class="mais-nova">Mais nova</em></span><small>.exe</small>
           </a>
-          <a role="menuitem" id="nav-and" href="https://github.com/ArthurDaviAraujo/ytdlp-studio/releases/tag/android-v1.0.1">
-            <span>Android</span><small id="nav-and-v">v1.0.1</small>
+          <div class="grupo-titulo">Android</div>
+          <a role="menuitem" href="https://github.com/ArthurDaviAraujo/ytdlp-studio/releases/tag/android-v1.0.1">
+            <span>v1.0.1 <em class="mais-nova">Mais nova</em></span><small>.apk</small>
           </a>
-          <a role="menuitem" href="https://github.com/ArthurDaviAraujo/ytdlp-studio/releases" target="_blank" rel="noopener">
-            <span data-i18n="nav-todas">Todas as versões</span><small>GitHub</small>
+          <a role="menuitem" class="todas" href="https://github.com/ArthurDaviAraujo/ytdlp-studio/releases" target="_blank" rel="noopener">
+            <span>Todas no GitHub</span><small>↗</small>
           </a>
         </div>
       </div>
@@ -103,7 +106,7 @@
       <div class="brilho"></div>
       <div class="janela">
         <div class="janela-barra"><i></i><i></i><i></i></div>
-        <img src="img/demo.gif" alt="" width="960" height="594" loading="eager">
+        <video src="img/demo.mp4" poster="img/demo-poster.jpg" width="1920" height="1200" autoplay muted loop playsinline preload="auto"></video>
       </div>
       <div class="celular">
         <img id="foto-celular" src="img/celular.png" alt="" width="540" height="1200">

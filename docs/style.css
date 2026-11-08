@@ -81,7 +81,17 @@ h1, h2, h3 { margin: 0; line-height: 1.15; }
 .suspenso.aberto .seta { transform: rotate(180deg); }
 .suspenso-lista a { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 9px 12px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 500; }
 .suspenso-lista a:hover { background: var(--cartao-2); color: var(--acento); }
-.suspenso-lista small { color: var(--suave); font-size: 12px; }
+.suspenso-lista small { color: var(--suave); font-size: 12px; white-space: nowrap; }
+.suspenso-lista { width: 300px; max-width: calc(100vw - 24px); max-height: min(72vh, 540px); overflow-y: auto; }
+.suspenso-lista a span { white-space: nowrap; }
+.grupo-titulo { font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: var(--suave); padding: 10px 12px 4px; }
+.grupo-titulo:not(:first-child) { border-top: 1px solid var(--borda); margin-top: 4px; padding-top: 12px; }
+.mais-nova {
+  font-style: normal; font-size: 11px; font-weight: 700; color: #fff; margin-left: 6px; padding: 1px 7px; border-radius: 999px;
+  background: linear-gradient(180deg, #ff5a4f, var(--acento-forte)); vertical-align: 1px;
+}
+.suspenso-lista a.antiga span { color: var(--suave); font-weight: 500; }
+.suspenso-lista a.todas { border-top: 1px solid var(--borda); border-radius: 0 0 8px 8px; margin-top: 4px; color: var(--acento); }
 
 /* ---------- Abertura ---------- */
 .heroi {
@@ -132,8 +142,8 @@ h1 { display: flex; flex-direction: column; gap: 6px; }
 .janela {
   position: relative; width: 100%; border-radius: 12px; overflow: hidden;
   background: #11141a; border: 1px solid #2b303c; box-shadow: var(--sombra);
-  transform: perspective(1400px) rotateY(-6deg) rotateX(2deg);
 }
+.janela video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 10; background: #0f1116; }
 .janela-barra { height: 26px; display: flex; align-items: center; gap: 7px; padding: 0 12px; background: #1b1f28; }
 .janela-barra i { width: 10px; height: 10px; border-radius: 50%; background: #4a5060; }
 .janela-barra i:first-child { background: #ff5a4f; }
