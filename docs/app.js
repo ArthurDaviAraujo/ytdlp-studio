@@ -33,6 +33,8 @@ const EN = {
   baixar: 'Download',
   'nota-windows': 'Windows 10 or 11, 64-bit. The AIs are downloaded inside the app, only if you use them.',
   'nota-android': 'Android 7 or newer. The app tells you when a new version is out.',
+  'demo-t': 'See it working on the PC',
+  'demo-p': 'Paste the link, analyze, pick the quality and get it ready for TikTok. Click the video to watch it full screen.',
   'r1-t': 'Download almost anything',
   'r1-p': 'YouTube, TikTok, Instagram and more than 1,700 sites. Max quality in one click, audio only, subtitles, playlists and chapters.',
   'r1-l': 'See all options',
@@ -123,6 +125,19 @@ suspenso.querySelector('button').addEventListener('click', (e) => {
 })
 document.addEventListener('click', () => suspenso.classList.remove('aberto'))
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') suspenso.classList.remove('aberto') })
+
+// ---------- Vídeo do app de PC: clique para tela cheia ----------
+const janelaDemo = document.getElementById('janela-demo')
+const videoDemo = document.getElementById('video-demo')
+function telaCheia() {
+  if (document.fullscreenElement) return document.exitFullscreen()
+  if (janelaDemo.requestFullscreen) return janelaDemo.requestFullscreen().catch(() => {})
+  // iPhone: só o próprio vídeo entra em tela cheia
+  if (videoDemo.webkitEnterFullscreen) videoDemo.webkitEnterFullscreen()
+}
+janelaDemo.addEventListener('click', telaCheia)
+// Garante que o vídeo toque mesmo se o navegador atrasar o autoplay
+videoDemo.play?.().catch(() => {})
 
 // ---------- Qual aparelho está abrindo o site ----------
 const ua = navigator.userAgent

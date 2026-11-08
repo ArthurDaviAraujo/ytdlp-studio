@@ -102,15 +102,25 @@
       </div>
     </div>
 
+    <!-- Na abertura, só o celular (como no Mihon): a tela dele é grande o bastante para ler -->
     <div class="palco" aria-hidden="true">
       <div class="brilho"></div>
-      <div class="janela">
-        <div class="janela-barra"><i></i><i></i><i></i></div>
-        <video src="img/demo.mp4" poster="img/demo-poster.jpg" width="1920" height="1200" autoplay muted loop playsinline preload="auto"></video>
-      </div>
       <div class="celular">
-        <img id="foto-celular" src="img/celular.png" alt="" width="540" height="1200">
+        <img id="foto-celular" src="img/celular.png" alt="" width="720" height="1600">
       </div>
+    </div>
+  </section>
+
+  <!-- ================= O app de PC funcionando ================= -->
+  <section class="secao" id="demo">
+    <h2 class="centro" data-i18n="demo-t">Veja funcionando no PC</h2>
+    <p class="suave centro" data-i18n="demo-p">Cole o link, analise, escolha a qualidade e deixe pronto para o TikTok. Clique no vídeo para ver em tela cheia.</p>
+    <div class="janela grande" id="janela-demo" title="Tela cheia">
+      <div class="janela-barra"><i></i><i></i><i></i><span>yt-dlp GUI</span></div>
+      <video id="video-demo" src="img/demo.mp4" poster="img/demo-poster.jpg" width="1920" height="1200" autoplay muted loop playsinline preload="metadata"></video>
+      <button class="tela-cheia" id="botao-tela-cheia" aria-label="Tela cheia">
+        <svg viewBox="0 0 24 24" width="18" height="18"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
     </div>
   </section>
 
