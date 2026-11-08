@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CircleCheck, RefreshCw, TriangleAlert } from 'lucide-react'
+import { ArrowDownToLine, CircleCheck, RefreshCw, TriangleAlert } from 'lucide-react'
 import { t } from '../../../src/shared/i18n'
 import { engine } from '../native'
 import { PackRow } from '../PackRow'
@@ -8,6 +8,7 @@ import type { Ctx } from '../App'
 
 export default function SettingsPage({ ctx }: { ctx: Ctx }) {
   const [updating, setUpdating] = useState(false)
+  const [checking, setChecking] = useState(false)
   const st = ctx.status
   return (
     <div className="space-y-4 p-4 pb-8">
@@ -59,9 +60,38 @@ export default function SettingsPage({ ctx }: { ctx: Ctx }) {
         </div>
       </Card>
 
-      <Card className="space-y-1 text-[13px] text-muted">
-        <div>{t('Os arquivos vão para Download/yt-dlp GUI e aparecem na galeria.')}</div>
-        <div>yt-dlp GUI {__APP_VERSION__} · github.com/ArthurDaviAraujo/ytdlp-studio</div>
+      <Card className="space-y-3">
+        <div className="text-[15px] font-medium">{t('App')}</div>
+        {ctx.appUpdate ? (
+          <>
+            <div className="text-[14px] text-accent">{t('Versão nova do app: {v}', { v: ctx.appUpdate.version })}</div>
+            <p className="text-[13px] text-muted">{t('O navegador baixa o APK; depois é só tocar nele para instalar por cima. Seus downloads e IAs continuam.')}</p>
+            <Button icon={<ArrowDownToLine className="h-4 w-4" />} onClick={() => void engine.openUrl({ url: ctx.appUpdate!.url })}>
+              {t('Baixar a versão {v}', { v: ctx.appUpdate.version })}
+            </Button>
+          </>
+        ) : (
+          <Button
+            icon={checking ? <Spinner /> : <RefreshCw className="h-4 w-4" />}
+            disabled={checking}
+            onClick={async () => {
+              setChecking(true)
+              try {
+                const u = await ctx.checkUpdate()
+                if (!u) ctx.toast(t('Você está na mais nova ({current})', { current: __APP_VERSION__ }))
+              } catch {
+                ctx.toast(t('Não deu para falar com o GitHub agora'))
+              }
+              setChecking(false)
+            }}
+          >
+            {checking ? t('Procurando…') : t('Procurar versão nova')}
+          </Button>
+        )}
+        <div className="space-y-1 text-[13px] text-muted">
+          <div>{t('Os arquivos vão para Download/yt-dlp GUI e aparecem na galeria.')}</div>
+          <div>yt-dlp GUI {__APP_VERSION__} · github.com/ArthurDaviAraujo/ytdlp-studio</div>
+        </div>
       </Card>
     </div>
   )

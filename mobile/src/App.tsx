@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Download, ListVideo, Settings2, Wand2 } from 'lucide-react'
+import { ArrowDownToLine, Download, ListVideo, Settings2, Wand2, X } from 'lucide-react'
 import { setLang, t, type Lang } from '../../src/shared/i18n'
 import { engine, type EngineStatus } from './native'
+import { checkAppUpdate, type AppUpdate } from './appupdate'
 import { useJobs } from './jobs'
 import { cx } from './ui'
 import DownloadPage from './pages/DownloadPage'
@@ -20,6 +21,10 @@ export interface Ctx {
   /** Abre o Preparar com um arquivo já escolhido (ex.: botão "Preparar" de um download) */
   prepareFile: (path: string, name: string) => void
   toast: (msg: string) => void
+  /** Versão nova do app no GitHub, se houver */
+  appUpdate: AppUpdate | null
+  /** Pergunta de novo ao GitHub (botão nos Ajustes); devolve a versão nova ou null */
+  checkUpdate: () => Promise<AppUpdate | null>
 }
 
 const LANG_KEY = 'mobile-lang'
@@ -31,12 +36,16 @@ export default function App() {
   const [lang, setLangState] = useState<Lang>(() => (localStorage.getItem(LANG_KEY) as Lang) || (navigator.language.startsWith('pt') ? 'pt' : 'en'))
   const [prepIn, setPrepIn] = useState<{ path: string; name: string } | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
+  const [appUpdate, setAppUpdate] = useState<AppUpdate | null>(null)
+  const [hideBanner, setHideBanner] = useState(false)
   const jobs = useJobs()
   setLang(lang)
 
   useEffect(() => {
     void engine.init().then(async (s) => {
       setStatus(s)
+      // Versão nova do app: só um aviso; sem internet, fica quieto
+      checkAppUpdate(s.abi).then(setAppUpdate, () => {})
       // Os sites mudam sempre; o yt-dlp é atualizado sozinho uma vez por dia, sem atrapalhar
       let last = 0
       try {
@@ -72,7 +81,13 @@ export default function App() {
       setPrepIn({ path, name })
       setTab('prepare')
     },
-    toast: setMsg
+    toast: setMsg,
+    appUpdate,
+    checkUpdate: async () => {
+      const u = await checkAppUpdate(status?.abi, true)
+      setAppUpdate(u)
+      return u
+    }
   }
 
   const running = jobs.filter((j) => j.status === 'running' || j.status === 'queued').length
@@ -92,6 +107,19 @@ export default function App() {
           <div className="text-[11px] text-muted">yt-dlp {status?.ytdlp ?? '…'}</div>
         </div>
       </header>
+
+      {appUpdate && !hideBanner && (
+        <div className="flex items-center gap-2 border-b border-line bg-accent/10 px-4 py-2 text-[13px]">
+          <ArrowDownToLine className="h-4 w-4 shrink-0 text-accent" />
+          <span className="flex-1">{t('Versão nova do app: {v}', { v: appUpdate.version })}</span>
+          <button onClick={() => void engine.openUrl({ url: appUpdate.url })} className="rounded-lg bg-accent px-3 py-1 font-medium text-white">
+            {t('Baixar')}
+          </button>
+          <button onClick={() => setHideBanner(true)} className="p-1 text-muted" aria-label={t('Fechar')}>
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       <main className="min-h-0 flex-1 overflow-y-auto">
         {tab === 'download' && <DownloadPage ctx={ctx} />}

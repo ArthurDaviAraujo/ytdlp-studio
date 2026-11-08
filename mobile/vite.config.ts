@@ -7,7 +7,8 @@ import pkg from './package.json' with { type: 'json' }
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   base: './',
-  define: { __APP_VERSION__: JSON.stringify(pkg.version) },
+  // APP_VERSION=0.9.0 npm run dev: finge ser uma versão velha, para ver o aviso de versão nova
+  define: { __APP_VERSION__: JSON.stringify(process.env.APP_VERSION || pkg.version) },
   server: { port: 5199, fs: { allow: ['..'] } },
   build: { outDir: 'dist', emptyOutDir: true }
 })

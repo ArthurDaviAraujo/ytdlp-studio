@@ -47,5 +47,13 @@ export const mobileEn: Record<string, string> = {
   'Quadros novos com IA (RIFE v4.6)': 'New frames with AI (RIFE v4.6)',
   'Cria os quadros que faltam para deixar o movimento mais suave (ex.: 30 → 60 fps).': 'Creates the missing frames for smoother motion (e.g. 30 → 60 fps).',
   'Melhorar imagem com IA (Real-ESRGAN)': 'Enhance image with AI (Real-ESRGAN)',
-  'Dobra a resolução recriando os detalhes. Bom para vídeo pequeno ou borrado.': 'Doubles the resolution by recreating details. Good for small or blurry video.'
+  'Dobra a resolução recriando os detalhes. Bom para vídeo pequeno ou borrado.': 'Doubles the resolution by recreating details. Good for small or blurry video.',
+  'Versão nova do app: {v}': 'New app version: {v}',
+  Fechar: 'Close',
+  App: 'App',
+  'O navegador baixa o APK; depois é só tocar nele para instalar por cima. Seus downloads e IAs continuam.': 'Your browser downloads the APK; then just tap it to install over this one. Your downloads and AIs stay.',
+  'Baixar a versão {v}': 'Download version {v}',
+  'Não deu para falar com o GitHub agora': 'Could not reach GitHub right now',
+  'Procurando…': 'Checking…',
+  'Procurar versão nova': 'Check for a new version'
 }

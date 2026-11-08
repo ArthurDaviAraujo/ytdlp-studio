@@ -22,6 +22,8 @@ App de celular do yt-dlp GUI. A tela usa React, Tailwind e Capacitor e reaprovei
   - Precisam de uma placa com Vulkan. Sem ela, o app desliga a opção e mostra o motivo.
 - **Downloads:** fila com progresso, cancelar, abrir, compartilhar e "Preparar". Os arquivos vão para `Download/yt-dlp GUI` e aparecem na galeria.
 - **Ajustes:** idioma, atualizar o yt-dlp e IAs.
+- **Versão nova:** ao abrir, o app consulta as releases `android-v*` do GitHub, no máximo a cada 6 h. Se houver uma mais nova, mostra um aviso com o botão "Baixar". O botão abre no navegador o APK certo para o celular (arm64 ou x86_64), e o Android instala por cima. Também dá para procurar em Ajustes → App. Para ver o aviso no navegador, use `APP_VERSION=0.9.0 npm run dev`.
+- **Ícone e abertura:** os mesmos do app de PC. O ícone sai do `build/icon.svg` em todos os tamanhos do Android, incluindo o ícone adaptável, com o desenho sobre o degradê escuro.
 
 ## Testar a tela no navegador
 

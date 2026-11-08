@@ -17,6 +17,8 @@ export interface EngineStatus {
   /** Placa do celular aceita Vulkan (as IAs precisam) */
   vulkan: boolean
   gpu: string | null
+  /** Arquitetura do celular (arm64-v8a, x86_64…), para o aviso de versão nova escolher o APK certo */
+  abi?: string | null
 }
 
 export interface ProbeInfo {
@@ -38,6 +40,8 @@ interface EnginePlugin {
   publish(o: { path: string; name: string; mime: string }): Promise<{ uri: string }>
   open(o: { uri: string; mime: string }): Promise<void>
   share(o: { uri: string; mime: string }): Promise<void>
+  /** Abre um link no navegador do celular */
+  openUrl(o: { url: string }): Promise<void>
   /** `base` e `whole`: para um pacote de vários arquivos, o progresso vai de 0 a 100 no pacote todo */
   fetchFile(o: { id: string; url: string; path: string; size: number; base?: number; whole?: number }): Promise<{ ok: boolean; error: string | null }>
   exists(o: { path: string }): Promise<{ exists: boolean }>
@@ -88,7 +92,7 @@ const demoInfo = {
 }
 
 const demo: EnginePlugin = {
-  init: async () => ({ ytdlp: '2026.10.26', ffmpeg: true, vulkan: true, gpu: 'Adreno 740 (demonstração)' }),
+  init: async () => ({ ytdlp: '2026.10.26', ffmpeg: true, vulkan: true, gpu: 'Adreno 740 (demonstração)', abi: 'arm64-v8a' }),
   ytdlp: async ({ id, args }) => {
     if (args.includes('-J')) {
       await wait(900)
@@ -105,6 +109,7 @@ const demo: EnginePlugin = {
   publish: async ({ name }) => ({ uri: 'content://demo/' + name }),
   open: async () => {},
   share: async () => {},
+  openUrl: async ({ url }) => void window.open(url, '_blank'),
   fetchFile: async ({ id }) => {
     await fakeRun(id, 3, () => '')
     demoFiles.add(id)

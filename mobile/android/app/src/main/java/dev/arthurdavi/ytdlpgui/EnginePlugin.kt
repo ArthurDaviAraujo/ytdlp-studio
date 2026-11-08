@@ -141,6 +141,8 @@ class EnginePlugin : Plugin() {
         val gpu = AiEngine.gpuName()
         r.put("vulkan", gpu != null)
         r.put("gpu", gpu)
+        // Para o aviso de versão nova escolher o APK certo (arm64-v8a nos celulares, x86_64 no emulador)
+        r.put("abi", android.os.Build.SUPPORTED_ABIS.firstOrNull())
         call.resolve(r)
     }
 
@@ -286,6 +288,14 @@ class EnginePlugin : Plugin() {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         activity.startActivity(Intent.createChooser(i, null))
+        call.resolve()
+    }
+
+    /** Abre um link no navegador do celular (ex.: o APK da versão nova; o navegador baixa e o Android instala) */
+    @PluginMethod
+    fun openUrl(call: PluginCall) {
+        val i = Intent(Intent.ACTION_VIEW, Uri.parse(call.getString("url"))).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        activity.startActivity(i)
         call.resolve()
     }
 
