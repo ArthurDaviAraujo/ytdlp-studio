@@ -33,6 +33,12 @@ const EN = {
   baixar: 'Download',
   'nota-windows': 'Windows 10 or 11, 64-bit. The AIs are downloaded inside the app, only if you use them.',
   'nota-android': 'Android 7 or newer. The app tells you when a new version is out.',
+  selo1: 'Max quality',
+  selo1b: 'up to 4K and 60 fps',
+  selo2: 'Ready for TikTok',
+  selo2b: '9:16, Reels and Shorts',
+  selo3: 'AI on your phone',
+  selo3b: 'RIFE and Real-ESRGAN',
   'demo-t': 'See it working on the PC',
   'demo-p': 'Paste the link, analyze, pick the quality and get it ready for TikTok. Click the video to watch it full screen.',
   'r1-t': 'Download almost anything',
@@ -126,18 +132,26 @@ suspenso.querySelector('button').addEventListener('click', (e) => {
 document.addEventListener('click', () => suspenso.classList.remove('aberto'))
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') suspenso.classList.remove('aberto') })
 
-// ---------- Vídeo do app de PC: clique para tela cheia ----------
-const janelaDemo = document.getElementById('janela-demo')
-const videoDemo = document.getElementById('video-demo')
-function telaCheia() {
-  if (document.fullscreenElement) return document.exitFullscreen()
-  if (janelaDemo.requestFullscreen) return janelaDemo.requestFullscreen().catch(() => {})
-  // iPhone: só o próprio vídeo entra em tela cheia
-  if (videoDemo.webkitEnterFullscreen) videoDemo.webkitEnterFullscreen()
+// ---------- Vídeos do app: clique para tela cheia; tocam só quando aparecem na tela ----------
+document.querySelectorAll('[data-tela-cheia]').forEach((janela) => {
+  const video = janela.querySelector('video')
+  janela.addEventListener('click', () => {
+    if (document.fullscreenElement) return document.exitFullscreen()
+    if (janela.requestFullscreen) return janela.requestFullscreen().catch(() => {})
+    // iPhone: só o próprio vídeo entra em tela cheia
+    if (video.webkitEnterFullscreen) video.webkitEnterFullscreen()
+  })
+})
+const videos = document.querySelectorAll('video[data-toca-ao-ver]')
+if ('IntersectionObserver' in window) {
+  const olho = new IntersectionObserver(
+    (itens) => itens.forEach((i) => (i.isIntersecting ? i.target.play().catch(() => {}) : i.target.pause())),
+    { threshold: 0.25 }
+  )
+  videos.forEach((v) => olho.observe(v))
+} else {
+  videos.forEach((v) => v.play().catch(() => {}))
 }
-janelaDemo.addEventListener('click', telaCheia)
-// Garante que o vídeo toque mesmo se o navegador atrasar o autoplay
-videoDemo.play?.().catch(() => {})
 
 // ---------- Qual aparelho está abrindo o site ----------
 const ua = navigator.userAgent

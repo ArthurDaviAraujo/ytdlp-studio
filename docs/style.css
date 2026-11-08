@@ -40,7 +40,8 @@ body {
   transition: background 0.2s, color 0.2s;
 }
 a { color: inherit; }
-img { max-width: 100%; display: block; }
+/* height: auto mantém a proporção quando a largura diminui (sem isso a imagem estica) */
+img, video { max-width: 100%; height: auto; display: block; }
 h1, h2, h3 { margin: 0; line-height: 1.15; }
 .suave { color: var(--suave); }
 .centro { text-align: center; }
@@ -131,33 +132,80 @@ h1 { display: flex; flex-direction: column; gap: 6px; }
 .nome-versao { font-size: 17px; font-weight: 700; margin: 2px 0; }
 .nota { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--borda); }
 
-/* Celular na abertura, com o brilho vermelho atrás */
-.palco { position: relative; min-height: 420px; display: flex; align-items: center; justify-content: center; }
+/* Celular na abertura, com o brilho vermelho atrás e selos flutuando em volta */
+.palco { position: relative; min-height: 600px; display: flex; align-items: center; justify-content: center; }
 .brilho {
-  position: absolute; inset: 4% 14%; border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(232, 30, 43, 0.35), rgba(232, 30, 43, 0.08) 60%, transparent);
-  filter: blur(30px);
+  position: absolute; left: 50%; top: 50%; width: 520px; height: 520px; max-width: 100%; transform: translate(-50%, -50%); border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(232, 30, 43, 0.42), rgba(232, 30, 43, 0.1) 62%, transparent);
+  filter: blur(36px);
 }
 [data-theme='light'] .brilho { background: radial-gradient(closest-side, rgba(232, 30, 43, 0.2), transparent); }
 .janela {
   position: relative; width: 100%; border-radius: 12px; overflow: hidden;
   background: #11141a; border: 1px solid #2b303c; box-shadow: var(--sombra);
 }
-.janela video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 10; background: #0f1116; }
+.janela video { display: block; width: 100%; height: auto; background: #0f1116; }
 .janela-barra { height: 26px; display: flex; align-items: center; gap: 7px; padding: 0 12px; background: #1b1f28; }
 .janela-barra i { width: 10px; height: 10px; border-radius: 50%; background: #4a5060; }
 .janela-barra i:first-child { background: #ff5a4f; }
 .janela-barra span { margin-left: 8px; font-size: 12px; color: #8a92a5; font-weight: 500; }
+/* Aparelho: moldura em degradê, botões na lateral, câmera e reflexo */
 .celular {
-  position: relative; width: 300px; max-width: 72vw;
-  border-radius: 38px; padding: 9px; background: #07080b; border: 1px solid #2b303c; box-shadow: var(--sombra);
-  transform: rotate(-3deg);
+  position: relative; z-index: 1; width: clamp(270px, min(25vw, 40vh), 350px);
+  border-radius: 50px; padding: 11px;
+  background: linear-gradient(145deg, #3a404d 0%, #161a21 38%, #0a0c10 70%, #2a2f3a 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.09),
+    inset 0 0 0 4px #050608,
+    0 50px 100px -20px rgba(0, 0, 0, 0.75),
+    0 30px 60px -30px rgba(232, 30, 43, 0.45);
+  animation: flutuar 7s ease-in-out infinite;
 }
-.celular img { border-radius: 30px; width: 100%; height: auto; }
+.celular::before, .celular::after {
+  content: ''; position: absolute; right: -3px; width: 4px; border-radius: 0 3px 3px 0; background: linear-gradient(#3a404d, #1b1f27);
+}
+.celular::before { top: 22%; height: 9%; }
+.celular::after { top: 34%; height: 15%; }
+.celular img { border-radius: 40px; width: 100%; height: auto; }
+.tela-brilho {
+  position: absolute; inset: 11px; border-radius: 40px; pointer-events: none;
+  background: linear-gradient(115deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0.02) 28%, transparent 42%);
+}
+.camera {
+  position: absolute; top: 23px; left: 50%; width: 11px; height: 11px; margin-left: -5.5px; border-radius: 50%; z-index: 2;
+  background: radial-gradient(circle at 35% 35%, #2c3a55, #05070a 60%); box-shadow: 0 0 0 2px #050608;
+}
+@keyframes flutuar {
+  0%, 100% { transform: rotate(-4deg) translateY(0); }
+  50% { transform: rotate(-4deg) translateY(-12px); }
+}
+
+/* Selos de vidro em volta do celular */
+.selo-flutuante {
+  position: absolute; z-index: 2; display: flex; align-items: center; gap: 10px; white-space: nowrap;
+  padding: 10px 14px 10px 10px; border-radius: 14px; font-size: 13.5px; font-weight: 600; color: var(--texto);
+  background: color-mix(in srgb, var(--cartao) 82%, transparent); border: 1px solid var(--borda);
+  backdrop-filter: blur(10px); box-shadow: 0 18px 40px -12px rgba(0, 0, 0, 0.6);
+  animation: flutuar-selo 6s ease-in-out infinite;
+}
+.selo-flutuante small { display: block; font-size: 11.5px; font-weight: 500; color: var(--suave); }
+.selo-flutuante .bola { width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.selo-flutuante .bola svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.aparelho { position: relative; }
+/* Cada selo encosta só na borda do aparelho: a maior parte fica do lado de fora */
+.s1 { top: 9%; right: calc(100% - 34px); }
+.s2 { top: 47%; left: calc(100% - 64px); animation-delay: -2s; }
+.s3 { bottom: 11%; right: calc(100% - 38px); animation-delay: -4s; }
+@keyframes flutuar-selo { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+@media (prefers-reduced-motion: reduce) {
+  .celular { animation: none; transform: rotate(-4deg); }
+  .selo-flutuante { animation: none; }
+}
 
 /* Vídeo do app de PC em tamanho de leitura */
-.janela.grande { max-width: 1120px; margin: 28px auto 0; cursor: zoom-in; }
-.janela.grande .janela-barra { height: 32px; }
+.janela.grande { max-width: 1120px; margin: 28px auto 0; }
+.janela.grande, .janela.clicavel { cursor: zoom-in; }
+.janela.grande .janela-barra, .janela.clicavel .janela-barra { height: 32px; }
 .tela-cheia {
   position: absolute; right: 8px; top: 3px; width: 26px; height: 26px; border-radius: 7px; border: 0; cursor: pointer;
   display: flex; align-items: center; justify-content: center; color: #c4cad6; background: transparent;
@@ -189,14 +237,13 @@ h1 { display: flex; flex-direction: column; gap: 6px; }
 .roxo { color: #a685ff; background: rgba(166, 133, 255, 0.14); }
 .ciano { color: #3cc7d6; background: rgba(60, 199, 214, 0.13); }
 
-.duas-colunas { display: grid; grid-template-columns: 0.8fr 1.2fr; gap: 48px; align-items: center; }
 .lista-check { list-style: none; padding: 0; margin: 20px 0 0; }
+.duas-colunas { display: grid; grid-template-columns: 0.8fr 1.2fr; gap: 48px; align-items: center; }
 .lista-check li { padding-left: 28px; position: relative; margin-bottom: 10px; }
 .lista-check li::before {
   content: ''; position: absolute; left: 0; top: 4px; width: 18px; height: 18px; border-radius: 50%;
   background: var(--acento-fundo) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m6 12 4 4 8-8' fill='none' stroke='%23ff4d4f' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 12px no-repeat;
 }
-.quadro-gif { border-radius: var(--raio); overflow: hidden; border: 1px solid var(--borda); box-shadow: var(--sombra); }
 
 .passo-cartao { padding: 26px; border-radius: var(--raio); background: var(--cartao); border: 1px solid var(--borda); display: flex; flex-direction: column; }
 .passo-cartao.destaque { border-color: color-mix(in srgb, var(--acento) 55%, var(--borda)); box-shadow: 0 0 0 4px var(--acento-fundo); }
@@ -222,7 +269,7 @@ details p { color: var(--suave); margin: 0 0 16px; }
 /* ---------- Telas menores ---------- */
 @media (max-width: 960px) {
   .heroi { grid-template-columns: 1fr; padding-top: 44px; }
-  .palco { min-height: 0; margin: 10px 0 20px; }
+  .palco { min-height: 540px; margin: 10px 0 10px; }
   .grade { grid-template-columns: repeat(2, 1fr); }
   .duas-colunas { grid-template-columns: 1fr; gap: 28px; }
 }
@@ -236,6 +283,12 @@ details p { color: var(--suave); margin: 0 0 16px; }
   .versao-linha { flex-direction: column; align-items: flex-start; }
   .acoes .botao { flex: 1; white-space: nowrap; }
   .acoes .primario { flex-basis: 100%; }
-  .celular { width: 250px; }
+  .celular { width: 235px; border-radius: 40px; padding: 9px; }
+  .celular img, .tela-brilho { border-radius: 32px; }
+  .tela-brilho { inset: 9px; }
+  .camera { top: 19px; width: 9px; height: 9px; margin-left: -4.5px; }
+  /* Na tela estreita não sobra espaço em volta do aparelho: os selos cobririam a tela dele */
+  .selo-flutuante { display: none; }
+  .palco { overflow-x: clip; }
   .suspenso-lista { left: auto; right: -90px; }
 }

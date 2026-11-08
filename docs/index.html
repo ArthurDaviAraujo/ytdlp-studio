@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=5">
   <script>
     // Tema antes de desenhar, para não piscar
     try { const t = localStorage.getItem('site-tema'); if (t) document.documentElement.dataset.theme = t } catch (e) {}
@@ -105,8 +105,25 @@
     <!-- Na abertura, só o celular (como no Mihon): a tela dele é grande o bastante para ler -->
     <div class="palco" aria-hidden="true">
       <div class="brilho"></div>
+      <!-- Os selos ficam presos ao aparelho, do lado de fora da tela -->
+      <div class="aparelho">
       <div class="celular">
+        <span class="camera"></span>
         <img id="foto-celular" src="img/celular.png" alt="" width="720" height="1600">
+        <span class="tela-brilho"></span>
+      </div>
+      <div class="selo-flutuante s1">
+        <span class="bola amarelo"><svg viewBox="0 0 24 24"><path d="m2 7 5 4 5-7 5 7 5-4-2 12H4z"/></svg></span>
+        <span><span data-i18n="selo1">Qualidade máxima</span><small data-i18n="selo1b">até 4K e 60 fps</small></span>
+      </div>
+      <div class="selo-flutuante s2">
+        <span class="bola azul"><svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg></span>
+        <span><span data-i18n="selo2">Pronto para o TikTok</span><small data-i18n="selo2b">9:16, Reels e Shorts</small></span>
+      </div>
+      <div class="selo-flutuante s3">
+        <span class="bola vermelho"><svg viewBox="0 0 24 24"><path d="m12 3 1.9 5.8L20 10l-5 3.6L16.5 20 12 16.3 7.5 20 9 13.6 4 10l6.1-1.2z"/></svg></span>
+        <span><span data-i18n="selo3">IA no celular</span><small data-i18n="selo3b">RIFE e Real-ESRGAN</small></span>
+      </div>
       </div>
     </div>
   </section>
@@ -115,10 +132,10 @@
   <section class="secao" id="demo">
     <h2 class="centro" data-i18n="demo-t">Veja funcionando no PC</h2>
     <p class="suave centro" data-i18n="demo-p">Cole o link, analise, escolha a qualidade e deixe pronto para o TikTok. Clique no vídeo para ver em tela cheia.</p>
-    <div class="janela grande" id="janela-demo" title="Tela cheia">
+    <div class="janela grande" id="janela-demo" data-tela-cheia title="Tela cheia">
       <div class="janela-barra"><i></i><i></i><i></i><span>yt-dlp GUI</span></div>
-      <video id="video-demo" src="img/demo.mp4" poster="img/demo-poster.jpg" width="1920" height="1200" autoplay muted loop playsinline preload="metadata"></video>
-      <button class="tela-cheia" id="botao-tela-cheia" aria-label="Tela cheia">
+      <video id="video-demo" src="img/demo.mp4" poster="img/demo-poster.jpg" width="1920" height="1200" muted loop playsinline preload="metadata" data-toca-ao-ver></video>
+      <button class="tela-cheia" aria-label="Tela cheia">
         <svg viewBox="0 0 24 24" width="18" height="18"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
     </div>
@@ -177,8 +194,12 @@
         <li data-i18n="veja-3">Funciona junto com os quadros novos do RIFE</li>
       </ul>
     </div>
-    <div class="quadro-gif">
-      <img src="demo-melhorar.gif" alt="Antes e depois do Melhorar imagem" width="960" height="590" loading="lazy">
+    <div class="janela clicavel" data-tela-cheia title="Tela cheia">
+      <div class="janela-barra"><i></i><i></i><i></i><span>yt-dlp GUI — Preparar vídeo</span></div>
+      <video src="img/melhorar.mp4" poster="img/melhorar-poster.jpg" width="1400" height="860" muted loop playsinline preload="none" data-toca-ao-ver></video>
+      <button class="tela-cheia" aria-label="Tela cheia">
+        <svg viewBox="0 0 24 24" width="18" height="18"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
     </div>
   </section>
 
@@ -244,6 +265,6 @@
   <p class="suave">© 2026 Arthur Davi</p>
 </footer>
 
-<script src="app.js"></script>
+<script src="app.js?v=5"></script>
 </body>
 </html>
