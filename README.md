@@ -4,6 +4,8 @@ Programa de desktop (Windows) que dá uma interface ao `yt-dlp`. Não altera nem
 
 ![Demonstração: baixar com Qualidade máxima, cortar e pôr música no Editor e preparar para o TikTok com estimativa de tempo](src/renderer/src/assets/demo.gif)
 
+**Site:** https://arthurdaviaraujo.github.io/ytdlp-studio/. O botão Instalar escolhe sozinho o instalador do Windows ou o APK do Android. O código do site fica na pasta [`docs`](docs/index.html) e vai para o ar pelo GitHub Pages.
+
 **Baixar:** o instalador para Windows está em [Releases](https://github.com/ArthurDaviAraujo/ytdlp-studio/releases/latest).
 
 **Android:** tem também um app de celular, na pasta [`mobile`](mobile/README.md). Ele baixa vídeos, recebe links pelo "Compartilhar" e prepara vídeos para as redes. A IA de quadros (RIFE) e a de imagem (Real-ESRGAN) são baixadas à parte, só por quem quiser. O APK sai na [release Android](https://github.com/ArthurDaviAraujo/ytdlp-studio/releases).
