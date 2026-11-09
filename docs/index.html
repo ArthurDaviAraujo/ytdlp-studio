@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=5">
+  <link rel="stylesheet" href="style.css?v=6">
   <script>
     // Tema antes de desenhar, para não piscar
     try { const t = localStorage.getItem('site-tema'); if (t) document.documentElement.dataset.theme = t } catch (e) {}
@@ -129,10 +129,17 @@
   </section>
 
   <!-- ================= O app de PC funcionando ================= -->
-  <section class="secao" id="demo">
-    <h2 class="centro" data-i18n="demo-t">Veja funcionando no PC</h2>
-    <p class="suave centro" data-i18n="demo-p">Cole o link, analise, escolha a qualidade e deixe pronto para o TikTok. Clique no vídeo para ver em tela cheia.</p>
-    <div class="janela grande" id="janela-demo" data-tela-cheia title="Tela cheia">
+  <section class="secao duas-colunas" id="demo">
+    <div>
+      <h2 data-i18n="demo-t">Veja funcionando no PC</h2>
+      <p class="suave" data-i18n="demo-p">Cole o link, analise, escolha a qualidade e deixe pronto para o TikTok. Clique no vídeo para ver em tela cheia.</p>
+      <ul class="lista-check">
+        <li data-i18n="demo-1">Mostra tudo do vídeo: formatos, legendas, capítulos e comentários</li>
+        <li data-i18n="demo-2">Qualidade máxima com um clique</li>
+        <li data-i18n="demo-3">Já sai pronto para TikTok, Reels ou Shorts</li>
+      </ul>
+    </div>
+    <div class="janela clicavel" id="janela-demo" data-tela-cheia title="Tela cheia">
       <div class="janela-barra"><i></i><i></i><i></i><span>yt-dlp GUI</span></div>
       <video id="video-demo" src="img/demo.mp4" poster="img/demo-poster.jpg" width="1920" height="1200" muted loop playsinline preload="metadata" data-toca-ao-ver></video>
       <button class="tela-cheia" aria-label="Tela cheia">
@@ -265,6 +272,6 @@
   <p class="suave">© 2026 Arthur Davi</p>
 </footer>
 
-<script src="app.js?v=5"></script>
+<script src="app.js?v=6"></script>
 </body>
 </html>
