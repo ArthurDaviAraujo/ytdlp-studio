@@ -9,7 +9,7 @@ import PlaylistView from '../components/PlaylistView'
 import OptionsPanel from '../components/OptionsPanel'
 import AllOptionsDialog from '../components/AllOptionsDialog'
 import demoGif from '../assets/demo.gif'
-import { DEFAULT_OPTIONS, PER_VIDEO_KEYS, buildArgs, describe, type DownloadOptions } from '../lib/args'
+import { DEFAULT_OPTIONS, PER_VIDEO_KEYS, buildArgs, describe, isAudioOnly, type DownloadOptions } from '../lib/args'
 import { t } from '../../../shared/i18n'
 
 const STORE_KEY = 'download-options'
@@ -115,7 +115,8 @@ export default function DownloadPage({ ctx }: { ctx: AppContext }) {
       label: describe(opts, { isPlaylist }) + (isPlaylist ? ` · ${opts.playlistItems ? t('itens {list}', { list: opts.playlistItems }) : t('playlist inteira')}` : ''),
       args,
       convert: convert(),
-      exportSettings: exportFor()
+      exportSettings: exportFor(),
+      audioOnly: isAudioOnly(opts)
     })
     queued(1)
   }
@@ -123,7 +124,7 @@ export default function DownloadPage({ ctx }: { ctx: AppContext }) {
   const enqueueRaw = async (list: string[]) => {
     const rawArgs = buildArgs(opts, { isPlaylist: false })
     for (const url of list) {
-      await window.api.addJob({ url, title: url, thumbnail: null, label: describe(opts, { isPlaylist: false }), args: rawArgs, convert: convert(), exportSettings: exportFor() })
+      await window.api.addJob({ url, title: url, thumbnail: null, label: describe(opts, { isPlaylist: false }), args: rawArgs, convert: convert(), exportSettings: exportFor(), audioOnly: opts.mode === 'audio' })
     }
     queued(list.length)
   }

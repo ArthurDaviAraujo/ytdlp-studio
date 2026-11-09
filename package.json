@@ -1,7 +1,7 @@
 {
   "name": "yt-dlp-gui",
   "productName": "yt-dlp GUI",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "description": "Interface gráfica para o yt-dlp",
   "main": "./out/main/index.js",
   "author": "Arthur Davi",

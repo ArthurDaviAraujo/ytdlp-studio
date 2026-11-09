@@ -166,7 +166,9 @@ function log(job: Job, rt: Runtime, line: string): void {
 export function addJob(req: JobRequest): Job {
   const s = getSettings()
   const kind = req.kind ?? 'download'
-  const args = kind === 'download' ? ['-P', s.downloadDir, '-o', s.outputTemplate, ...req.args] : []
+  // Só áudio vai para a pasta das músicas; o resto, para a dos vídeos
+  const dir = req.audioOnly ? s.audioDir || s.downloadDir : s.downloadDir
+  const args = kind === 'download' ? ['-P', dir, '-o', s.outputTemplate, ...req.args] : []
   const job: Job = {
     id: randomUUID(),
     kind,

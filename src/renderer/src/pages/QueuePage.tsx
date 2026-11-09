@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { CircleCheck, CircleX, Copy, FileText, FolderOpen, ListVideo, Play, RotateCcw, Scissors, ScrollText, Trash2, TriangleAlert, Wand2, X } from 'lucide-react'
+import { CircleCheck, CircleX, Copy, FileText, FolderOpen, ListVideo, Music, Play, RotateCcw, Scissors, ScrollText, Trash2, TriangleAlert, Wand2, X } from 'lucide-react'
 import type { Job } from '../../../shared/types'
 import type { AppContext } from '../App'
 import { Badge, Button, Empty, ProgressBar, cx } from '../components/ui'
@@ -137,7 +137,7 @@ function JobCard({ job, onRemoved, onPrepare, onEdit }: { job: Job; onRemoved: (
             )}
             {(job.status === 'error' || job.status === 'canceled' || job.status === 'done') && (
               <Button size="sm" icon={<RotateCcw className="h-3.5 w-3.5" />} onClick={() => window.api.retryJob(job.id)}>
-                {job.status === 'done' ? t('Baixar de novo') : t('Tentar de novo')}
+                {job.status !== 'done' ? t('Tentar de novo') : job.kind === 'convert' ? t('Converter de novo') : job.kind === 'download' ? t('Baixar de novo') : t('Fazer de novo')}
               </Button>
             )}
             <Button size="sm" variant="ghost" icon={<ScrollText className="h-3.5 w-3.5" />} onClick={() => setShowLog(!showLog)}>
@@ -178,8 +178,13 @@ export default function QueuePage({ ctx, jobs, onRemoved }: { ctx: AppContext; j
             </p>
           </div>
           <Button icon={<FolderOpen className="h-4 w-4" />} onClick={() => window.api.openPath(ctx.settings.downloadDir)}>
-            {t('Abrir pasta')}
+            {t('Pasta dos vídeos')}
           </Button>
+          {ctx.settings.audioDir && ctx.settings.audioDir !== ctx.settings.downloadDir && (
+            <Button icon={<Music className="h-4 w-4" />} onClick={() => window.api.openPath(ctx.settings.audioDir)}>
+              {t('Pasta das músicas')}
+            </Button>
+          )}
           <Button variant="ghost" icon={<Trash2 className="h-4 w-4" />} disabled={!finished} onClick={() => window.api.clearFinished().then(onRemoved)}>
             {t('Limpar finalizados')}
           </Button>

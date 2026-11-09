@@ -8,7 +8,10 @@ export interface Settings {
   rifePath: string
   jsRuntime: JsRuntimeChoice
   jsRuntimePath: string
+  /** Pasta dos vídeos */
   downloadDir: string
+  /** Pasta das músicas: downloads só de áudio (MP3, M4A…) */
+  audioDir: string
   outputTemplate: string
   concurrency: number
   exportPresets: SavedPreset[]
@@ -381,6 +384,8 @@ export interface JobRequest {
   label: string
   args: string[]
   convert: ConvertOptions | null
+  /** Download só de áudio: vai para a pasta das músicas */
+  audioOnly?: boolean
   /** Depois do download, prepara cada vídeo com estas opções */
   exportSettings?: ExportSettings | null
   /** Exportação de um arquivo que já está no PC */

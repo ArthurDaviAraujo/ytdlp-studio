@@ -4,6 +4,11 @@ import { t } from '../../../shared/i18n'
 
 export type Mode = 'video' | 'audio' | 'manual'
 
+/** Download que só traz som (modo "Só áudio", ou formatos escolhidos à mão sem vídeo): vai para a pasta das músicas */
+export function isAudioOnly(o: { mode: Mode; manualVideo: string | null; manualAudio: string[] }): boolean {
+  return o.mode === 'audio' || (o.mode === 'manual' && !o.manualVideo && o.manualAudio.length > 0)
+}
+
 export interface AdvancedValue {
   on: boolean
   values: string[][]

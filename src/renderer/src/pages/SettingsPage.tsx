@@ -268,20 +268,27 @@ export default function SettingsPage({ ctx }: { ctx: AppContext }) {
 
         <Card title={t('Downloads')}>
           <div className="space-y-4">
-            <Field label={t('Pasta de destino')}>
-              <div className="flex gap-2">
-                <TextInput value={s.downloadDir} readOnly />
-                <Button
-                  icon={<FolderOpen className="h-4 w-4" />}
-                  onClick={async () => {
-                    const d = await window.api.pickFolder(s.downloadDir)
-                    if (d) await ctx.saveSettings({ downloadDir: d })
-                  }}
-                >
-                  {t('Escolher')}
-                </Button>
-              </div>
-            </Field>
+            {(
+              [
+                { key: 'downloadDir', label: t('Pasta dos vídeos'), hint: null },
+                { key: 'audioDir', label: t('Pasta das músicas'), hint: t('Downloads em "Só áudio" (MP3, M4A, FLAC…) vão para cá; os vídeos, para a pasta de cima.') }
+              ] as const
+            ).map((f) => (
+              <Field key={f.key} label={f.label} hint={f.hint ?? undefined}>
+                <div className="flex gap-2">
+                  <TextInput value={s[f.key] || s.downloadDir} readOnly />
+                  <Button
+                    icon={<FolderOpen className="h-4 w-4" />}
+                    onClick={async () => {
+                      const d = await window.api.pickFolder(s[f.key] || s.downloadDir)
+                      if (d) await ctx.saveSettings({ [f.key]: d })
+                    }}
+                  >
+                    {t('Escolher')}
+                  </Button>
+                </div>
+              </Field>
+            ))}
             <Field
               label={t('Modelo do nome do arquivo')}
               hint={

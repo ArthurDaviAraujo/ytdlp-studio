@@ -2,7 +2,7 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react'
 import { ChevronDown, Copy, Download, FolderOpen, SlidersHorizontal, TriangleAlert } from 'lucide-react'
 import { Button, Checkbox, Field, MaxQualityButton, Segmented, Select, TextInput, Toggle, cx } from './ui'
-import { AUDIO_FORMATS, SPONSOR_CATEGORIES, formatKind, quoteArg, type DownloadOptions, type Mode } from '../lib/args'
+import { AUDIO_FORMATS, SPONSOR_CATEGORIES, formatKind, isAudioOnly, quoteArg, type DownloadOptions, type Mode } from '../lib/args'
 import type { AppContext } from '../App'
 import ExportForm, { ENCODER_LABEL } from './ExportForm'
 import { t } from '../../../shared/i18n'
@@ -62,7 +62,10 @@ export default function OptionsPanel({
   const hasManual = !!(opts.manualVideo || opts.manualAudio.length)
   const subsCount = new Set([...opts.subsManual, ...opts.subsAuto]).size
   const noProbe = !ctx.tools.ffprobe.path
-  const command = ['yt-dlp', '-P', ctx.settings.downloadDir, '-o', ctx.settings.outputTemplate, ...args, url || '<link>']
+  // Só áudio vai para a pasta das músicas; vídeo, para a dos vídeos
+  const audioOnly = isAudioOnly(opts)
+  const saveDir = audioOnly ? ctx.settings.audioDir || ctx.settings.downloadDir : ctx.settings.downloadDir
+  const command = ['yt-dlp', '-P', saveDir, '-o', ctx.settings.outputTemplate, ...args, url || '<link>']
     .map(quoteArg)
     .join(' ')
 
@@ -292,18 +295,37 @@ export default function OptionsPanel({
         </Group>
 
         <Group title={t('Onde salvar')}>
-          <Field label={t('Pasta')}>
-            <div className="flex gap-2">
-              <TextInput value={ctx.settings.downloadDir} readOnly title={ctx.settings.downloadDir} />
-              <Button
-                icon={<FolderOpen className="h-4 w-4" />}
-                onClick={async () => {
-                  const dir = await window.api.pickFolder(ctx.settings.downloadDir)
-                  if (dir) await ctx.saveSettings({ downloadDir: dir })
-                }}
-              />
-            </div>
-          </Field>
+          {(
+            [
+              { key: 'downloadDir', label: t('Pasta dos vídeos'), on: !audioOnly },
+              { key: 'audioDir', label: t('Pasta das músicas (só áudio)'), on: audioOnly }
+            ] as const
+          ).map((f) => {
+            const dir = ctx.settings[f.key] || ctx.settings.downloadDir
+            return (
+              <Field
+                key={f.key}
+                label={
+                  <span className="inline-flex items-center gap-2">
+                    {f.label}
+                    {f.on && <span className="rounded-full bg-accent/15 px-2 py-px text-[10px] font-semibold tracking-normal text-accent normal-case">{t('este download')}</span>}
+                  </span>
+                }
+              >
+                <div className="flex gap-2">
+                  <TextInput value={dir} readOnly title={dir} className={f.on ? '' : 'opacity-60'} />
+                  <Button
+                    icon={<FolderOpen className="h-4 w-4" />}
+                    title={t('Escolher')}
+                    onClick={async () => {
+                      const picked = await window.api.pickFolder(dir)
+                      if (picked) await ctx.saveSettings({ [f.key]: picked })
+                    }}
+                  />
+                </div>
+              </Field>
+            )
+          })}
           <Field label={t('Nome do arquivo')} hint={t('%(title)s título · %(id)s id · %(uploader)s canal · %(upload_date)s data · %(ext)s extensão')}>
             <TextInput
               value={template}
