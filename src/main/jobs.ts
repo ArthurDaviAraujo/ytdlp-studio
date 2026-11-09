@@ -7,8 +7,9 @@ import type { Job, JobRequest } from '../shared/types'
 import { baseArgs, getToolStatus } from './tools'
 import { getSettings } from './settings'
 import { killTree } from './ytdlp'
-import { convertToH264, convertedPath, isVideoFile } from './convert'
+import { convertToH264, convertedPath, isVideoFile, listH264Encoders } from './convert'
 import { cutVideo, exportVideo, type ExportHooks } from './export'
+import { probe } from './media'
 import { t } from '../shared/i18n'
 
 // Linhas que o yt-dlp imprime para o app; o resto vai para o log
@@ -233,10 +234,10 @@ function start(job: Job): void {
   job.warnings = 0
   job.item = null
   resetProgress(job)
-  if (job.kind === 'export' || job.kind === 'cut') {
+  if (job.kind === 'export' || job.kind === 'cut' || job.kind === 'convert') {
     job.stage = t('Lendo o vídeo')
     touch(job, true)
-    void (job.kind === 'cut' ? runCutJob(job, rt) : runExportJob(job, rt))
+    void (job.kind === 'cut' ? runCutJob(job, rt) : job.kind === 'convert' ? runConvertJob(job, rt) : runExportJob(job, rt))
     return
   }
   if (!bin) return finish(job, rt, -1, t('yt-dlp.exe não encontrado'))
@@ -358,6 +359,39 @@ async function runCutJob(job: Job, rt: Runtime): Promise<void> {
   finish(job, rt, r.ok ? 0 : -1, r.ok || rt.canceled ? null : r.error)
 }
 
+/** Só converte para H.264 um vídeo que já está no PC: mesmo tamanho, FPS, som e legendas; o original fica */
+async function runConvertJob(job: Job, rt: Runtime): Promise<void> {
+  if (!job.input || !existsSync(job.input)) return finish(job, rt, -1, t('O arquivo não existe mais'))
+  let info: Awaited<ReturnType<typeof probe>> | null = null
+  try {
+    info = await probe(job.input)
+  } catch (e) {
+    return finish(job, rt, -1, (e as Error).message)
+  }
+  const available = await listH264Encoders()
+  let encoder = job.convert?.encoder && available.includes(job.convert.encoder) ? job.convert.encoder : (available[0] ?? 'libx264')
+  // Os codificadores das placas não passam de 4096 px; acima disso, o processador
+  if (encoder !== 'libx264' && Math.max(info.width, info.height) > 4096) encoder = 'libx264'
+  job.status = 'converting'
+  job.stage = t('Convertendo para H.264 ({encoder})', { encoder })
+  touch(job, true)
+  log(job, rt, '[app] ' + t('Convertendo {file}', { file: job.input }))
+  const r = await convertToH264(
+    job.input,
+    encoder,
+    info.duration || null,
+    (pct, line) => {
+      if (pct != null) job.percent = pct
+      if (line) log(job, rt, line)
+      touch(job)
+    },
+    (c) => (rt.child = c)
+  )
+  rt.child = null
+  if (r.ok) job.files.push(r.output)
+  finish(job, rt, r.ok ? 0 : -1, r.ok || rt.canceled ? null : t('Falha na conversão: {error}', { error: r.error ?? '' }))
+}
+
 async function afterDownload(job: Job, rt: Runtime, code: number): Promise<void> {
   if (rt.canceled) return finish(job, rt, code, null)
   const videos = job.files.filter((f) => isVideoFile(f) && existsSync(f))
@@ -448,7 +482,7 @@ function notifyDone(job: Job): void {
   const win = BrowserWindow.getAllWindows().find((w) => !w.getParentWindow())
   if (win?.isFocused()) return
   const ok = job.status === 'done'
-  const what = job.kind === 'download' ? t('Download') : t('Preparo')
+  const what = job.kind === 'download' ? t('Download') : job.kind === 'convert' ? t('Conversão') : t('Preparo')
   const n = new Notification({
     title: ok ? t('{what} concluído', { what }) : t('{what} com erro', { what }),
     body: job.title || job.label,

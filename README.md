@@ -52,7 +52,7 @@ Tudo é salvo em `%APPDATA%\yt-dlp GUI\bin`. Depois de gerado, ele pode ser movi
 - **Fila de downloads**: progresso, velocidade, tempo restante, item da playlist, log, cancelar, tentar de novo, abrir o arquivo ou a pasta. Também tem histórico e uma prévia do comando.
 - **Aviso do Windows** quando um download ou preparo termina com o app em segundo plano. Clicar no aviso abre a lista. Dá para desligar em Configurações.
 - **Atualização do app**: o app consulta a última versão no GitHub ao abrir. Se houver uma nova, mostra um aviso no menu lateral, baixa o instalador com progresso e abre a instalação com um clique.
-- **Converter para H.264** depois de baixar, usando a GPU (AMD/NVIDIA/Intel) ou a CPU. Só aparecem os codificadores que funcionam na máquina.
+- **Converter para H.264** depois de baixar, usando a GPU (AMD/NVIDIA/Intel) ou a CPU. Só aparecem os codificadores que funcionam na máquina. Um vídeo que já está no PC também pode ser convertido sem baixar de novo: em **Preparar vídeo**, botão **Só converter para H.264** (tamanho, FPS, som e legendas iguais; sai `nome.h264.mp4` e o original fica).
 - **FPS máximo** na hora de baixar (`-S fps:N`).
 - **Qualidade máxima**: um botão no painel de download e outro no Preparar vídeo, que deixam tudo no máximo com um clique e desligam voltando ao que estava antes. No download, o app pega o maior tamanho e FPS do site, o melhor áudio e não converte nada. No Preparar, usa imagem em 15, `libx264`, sem limite de taxa e áudio AAC 320 kbps. Um aviso lembra que o arquivo e o tempo podem crescer muito.
 - **Preparar para postar**: um grupo no fim do painel de download e a página **Preparar vídeo**, que trabalha com qualquer vídeo do PC. Também aparece um botão "Preparar" em cada download concluído.

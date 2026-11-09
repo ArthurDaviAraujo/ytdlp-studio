@@ -310,7 +310,8 @@ export interface ConvertOptions {
   keepOriginal: boolean
 }
 
-export type JobKind = 'download' | 'export' | 'cut'
+/** 'convert': só troca o formato de um vídeo que já está no PC para H.264 (tamanho e FPS iguais) */
+export type JobKind = 'download' | 'export' | 'cut' | 'convert'
 
 /** Resultado da medição de tempo de uma exportação */
 export interface ExportEstimate {

@@ -56,6 +56,12 @@ export const en: Record<string, string> = {
   'Convertendo para H.264 ({encoder})': 'Converting to H.264 ({encoder})',
   'Convertendo {file}': 'Converting {file}',
   'Falha na conversão: {error}': 'Conversion failed: {error}',
+  'O arquivo não existe mais': 'The file no longer exists',
+  Conversão: 'Conversion',
+  'Só converter para H.264': 'Just convert to H.264',
+  'Este vídeo já está em H.264.': 'This video is already H.264.',
+  'Troca só o formato para H.264, o que abre em qualquer celular, TV e site. Tamanho, FPS, som e legendas ficam iguais; o original continua na pasta e o novo sai com ".h264.mp4" no nome.':
+    'Only changes the format to H.264, which plays on any phone, TV and site. Size, FPS, sound and subtitles stay the same; the original stays in the folder and the new one gets ".h264.mp4" in its name.',
   'Não consegui apagar o original: {error}': 'Could not delete the original: {error}',
   'Falha ao preparar para {name}: {error}': 'Failed to prepare for {name}: {error}',
   Concluído: 'Done',

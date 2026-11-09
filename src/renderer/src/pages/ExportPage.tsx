@@ -4,7 +4,7 @@ import type { EditPlan, ExportSettings, Job, MediaInfo } from '../../../shared/t
 import { BUILTIN_PRESETS } from '../../../shared/presets'
 import type { AppContext } from '../App'
 import { Button, Card, Empty, Spinner } from '../components/ui'
-import ExportForm, { exportSummary, niceTime } from '../components/ExportForm'
+import ExportForm, { ENCODER_LABEL, exportSummary, niceTime } from '../components/ExportForm'
 import BeforeAfter from '../components/BeforeAfter'
 import FramingPreview from '../components/FramingPreview'
 import { bytes, duration, parseTime } from '../lib/format'
@@ -132,6 +132,25 @@ export default function ExportPage({ ctx, jobs, source, setSource, edit, clearEd
     ctx.notify(t('Adicionado à fila'), { label: t('Ver downloads'), run: () => ctx.goTo('queue') })
   }
 
+  // Só troca o formato para H.264, sem mexer em tamanho, FPS, som ou legendas (o original continua na pasta)
+  const isH264 = info?.vcodec === 'h264'
+  const convertOnly = async () => {
+    if (!source || !info) return
+    const encoder = /^(h264_|libx264|libopenh264)/.test(settings.encoder) ? settings.encoder : ''
+    const best = encoder || ctx.caps?.encoders[0] || 'libx264'
+    await window.api.addJob({
+      kind: 'convert',
+      url: '',
+      title: baseName(source),
+      thumbnail: null,
+      label: `H.264 · ${info.width}×${info.height} · ${t(ENCODER_LABEL[best] ?? best)}`,
+      args: [],
+      convert: { encoder, keepOriginal: true },
+      input: source
+    })
+    ctx.notify(t('Adicionado à fila'), { label: t('Ver downloads'), run: () => ctx.goTo('queue') })
+  }
+
   const [estimate, setEstimate] = useState<number | null>(null)
   const summary = exportSummary(settings, info ? { width: info.width, height: info.height, fps: info.fps, duration: editDur ?? info.duration } : null)
   const outName = source ? `${baseName(source).replace(/\.[^.]+$/, '')}.${settings.suffix || 'editado'}.mp4` : ''
@@ -177,6 +196,19 @@ export default function ExportPage({ ctx, jobs, source, setSource, edit, clearEd
               title={baseName(source)}
               actions={
                 <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    icon={<RefreshCw className="h-3.5 w-3.5" />}
+                    disabled={!info || isH264}
+                    onClick={convertOnly}
+                    title={
+                      isH264
+                        ? t('Este vídeo já está em H.264.')
+                        : t('Troca só o formato para H.264, o que abre em qualquer celular, TV e site. Tamanho, FPS, som e legendas ficam iguais; o original continua na pasta e o novo sai com ".h264.mp4" no nome.')
+                    }
+                  >
+                    {t('Só converter para H.264')}
+                  </Button>
                   <Button size="sm" variant="ghost" onClick={() => window.api.showInFolder(source)}>
                     {t('Mostrar na pasta')}
                   </Button>
