@@ -9,7 +9,6 @@ import DownloadPage from './pages/DownloadPage'
 import PreparePage from './pages/PreparePage'
 import QueuePage from './pages/QueuePage'
 import SettingsPage from './pages/SettingsPage'
-import icon from '../../src/renderer/src/assets/icon.svg'
 
 export type Tab = 'download' | 'prepare' | 'queue' | 'settings'
 
@@ -101,11 +100,17 @@ export default function App() {
   return (
     <div className="flex h-full flex-col bg-bg">
       <header className="safe-top flex items-center gap-2.5 border-b border-line bg-panel px-4 pb-3">
-        <img src={icon} alt="" className="h-8 w-8" />
-        <div className="flex-1">
-          <div className="text-[16px] leading-4 font-semibold">yt-dlp GUI</div>
-          <div className="text-[11px] text-muted">yt-dlp {status?.ytdlp ?? '…'}</div>
-        </div>
+        {(() => {
+          // O título é o da aba aberta, com o mesmo ícone dela (na aba Baixar: Download + seta)
+          const atual = tabs.find((x) => x.id === tab)!
+          return (
+            <>
+              <atual.icon className="h-6 w-6 text-accent" />
+              <div className="flex-1 text-[18px] leading-5 font-semibold">{atual.label}</div>
+            </>
+          )
+        })()}
+        <div className="text-[12px] text-muted">v{__APP_VERSION__}</div>
       </header>
 
       {appUpdate && !hideBanner && (
